@@ -15,6 +15,8 @@ const buildings = [
   const b = { id: row[0], name: row[1], address: row[2], district: row[3], lat: row[4], lng: row[5], year: row[6], age: row[7], use: row[8], zoning: row[9], ownership: row[10], vacancy: row[11], floorArea: row[12], mtr: row[13], risk: row[14], compatibility: row[15], feasibility: row[16], location: row[17], design: row[18], services: row[19], regulatory: row[20], safety: row[21], economic: row[22], environmental: row[23], housing: row[24], social: row[25], constraints: row[26], opportunities: row[27] };
   return {
     ...b,
+    storeys: Math.max(10, Math.round(b.floorArea / 520)),
+    height: Math.max(40, Math.round(Math.max(10, b.floorArea / 520) * 3.8)),
     housingDemand: b.housing,
     planningZoning: zoningScore(b),
     landLease: landLeaseScore(b),
@@ -66,7 +68,7 @@ const residentialZones = [
     [[22.386,114.178],[22.406,114.178],[22.406,114.205],[22.386,114.205]]
   ]}
 ];
-const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxMtr: 1200 };
+const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxHeight: 220, maxStoreys: 60, maxMtr: 1200 };
 let state = { scenario: 'balanced', weights: scenarios.balanced.weights.slice(), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters} };
 let suitabilityMap = null;
 let suitabilityLayer = null;
@@ -96,7 +98,7 @@ function normalisedWeights(weights) { const total = weights.reduce((a,b)=>a+b,0)
 function score(building, weights = state.weights) { const nw = normalisedWeights(weights); return Math.round(dimensions.reduce((sum, [key], i) => sum + building[key] * nw[i] / 100, 0)); }
 function category(s) { return s >= 70 ? 'High' : s >= 40 ? 'Medium' : 'Low'; }
 function scored(weights = state.weights) { return buildings.map(b => ({...b, score: score(b, weights), category: category(score(b, weights))})).sort((a,b)=>b.score-a.score); }
-function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.vacancy >= state.filters.minVacancy && b.age <= state.filters.maxAge && b.mtr <= state.filters.maxMtr); }
+function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.vacancy >= state.filters.minVacancy && b.age <= state.filters.maxAge && b.height <= state.filters.maxHeight && b.storeys <= state.filters.maxStoreys && b.mtr <= state.filters.maxMtr); }
 function sortedRows(rows) { const {key, dir} = state.sort; const sign = dir === 'asc' ? 1 : -1; return rows.slice().sort((a,b) => { const av = a[key]; const bv = b[key]; if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign; return String(av).localeCompare(String(bv)) * sign; }); }
 function options(id, values) { const el = document.getElementById(id); el.innerHTML = ['All', ...new Set(values)].sort((a,b)=> a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)).map(v => '<option>'+h(v)+'</option>').join(''); }
 function bar(parent, label, value, max = 100, color = '#0f766e') { parent.insertAdjacentHTML('beforeend', '<div class="bar-row"><span>'+h(label)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.max(2,value/max*100)+'%;background:'+color+'"></div></div><strong>'+h(value)+'</strong></div>'); }
@@ -149,7 +151,7 @@ function render() {
     ['Buildings', all.length],
     ['Visible now', rows.length],
     ['Average age', Math.round(buildings.reduce((s,b)=>s+b.age,0)/buildings.length)+' yrs'],
-    ['Vacant floor area', fmt.format(buildings.reduce((s,b)=>s+b.floorArea,0))+' sqm'],
+    ['GFA Gross Floor Area', fmt.format(buildings.reduce((s,b)=>s+b.floorArea,0))+' sqm'],
     ['High potential', all.filter(b=>b.category==='High').length]
   ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   const cat = document.getElementById('categoryChart'); cat.innerHTML = '';
@@ -273,7 +275,7 @@ function renderZoneMap(rows, selected) {
 function renderProfile(b) {
   document.getElementById('buildingProfile').innerHTML =
     '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+' suitability</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
-    '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
+    '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>Storeys</dt><dd>'+h(b.storeys)+'</dd></div><div><dt>Building height</dt><dd>'+h(b.height)+' m</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
 }
 function renderTable(rows) {
@@ -336,6 +338,8 @@ function syncFilterControls() {
   document.getElementById('minScoreValue').textContent = state.filters.minScore;
   document.getElementById('minVacancyValue').textContent = state.filters.minVacancy;
   document.getElementById('maxAgeValue').textContent = state.filters.maxAge;
+  document.getElementById('maxHeightValue').textContent = state.filters.maxHeight;
+  document.getElementById('maxStoreysValue').textContent = state.filters.maxStoreys;
   document.getElementById('maxMtrValue').textContent = state.filters.maxMtr;
 }
 function init() {
@@ -357,7 +361,7 @@ function init() {
     }
   });
   ['search','district','zoning','ownership','risk','compatibility'].forEach(id => document.getElementById(id).oninput = e => { state.filters[id] = e.target.value; render(); });
-  [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
+  [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxHeight','maxHeightValue'],['maxStoreys','maxStoreysValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
   document.getElementById('resetFilters').onclick = () => { state.filters = {...defaultFilters}; syncFilterControls(); render(); };
   document.getElementById('exportCsv').onclick = exportCsv;
   syncFilterControls();
