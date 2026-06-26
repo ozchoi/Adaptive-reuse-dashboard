@@ -51,23 +51,15 @@ const scenarios = {
   market: { label: 'Market-driven scenario', summary: 'Prioritises owner investment logic, market absorption, governance and programme risk.', weights: [16,7,9,12,8,8,7,4,5,18,6] },
   community: { label: 'Community-impact scenario', summary: 'Prioritises district capacity, neighbourhood compatibility, transport and housing benefit.', weights: [14,6,4,5,9,6,13,16,16,5,6] }
 };
-const residentialZones = [
-  { type: 'Residential A', label: 'Urban high-density residential', color: '#2563eb', polygons: [
-    [[22.276,114.127],[22.291,114.127],[22.291,114.225],[22.276,114.225]],
-    [[22.304,114.156],[22.344,114.156],[22.344,114.218],[22.304,114.218]],
-    [[22.361,114.108],[22.376,114.108],[22.376,114.130],[22.361,114.130]]
-  ]},
-  { type: 'Residential B', label: 'Medium-density residential and new-town context', color: '#0f766e', polygons: [
-    [[22.382,114.176],[22.414,114.176],[22.414,114.215],[22.382,114.215]],
-    [[22.384,113.956],[22.410,113.956],[22.410,114.005],[22.384,114.005]],
-    [[22.431,114.016],[22.458,114.016],[22.458,114.060],[22.431,114.060]]
-  ]},
-  { type: 'Residential C', label: 'Lower-density residential interface', color: '#d97706', polygons: [
-    [[22.231,114.139],[22.258,114.139],[22.258,114.181],[22.231,114.181]],
-    [[22.255,114.225],[22.276,114.225],[22.276,114.248],[22.255,114.248]],
-    [[22.386,114.178],[22.406,114.178],[22.406,114.205],[22.386,114.205]]
-  ]}
+const ozpResidentialGroups = [
+  { code: 'R(A)', label: 'Residential (Group A)', color: 'rgb(150,18,8)' },
+  { code: 'R(B)', label: 'Residential (Group B)', color: 'rgb(189,105,15)' },
+  { code: 'R(C)', label: 'Residential (Group C)', color: 'rgb(230,181,25)' },
+  { code: 'R(D)', label: 'Residential (Group D)', color: 'rgb(255,219,13)' },
+  { code: 'R(E)', label: 'Residential (Group E)', color: 'rgb(168,18,36)' }
 ];
+const ozpServiceUrl = 'https://www.ozp.tpb.gov.hk/arcgis2/rest/services/SPP3/OZP_PLAN/MapServer/export';
+const ozpLayerDefs = { 1015: "ZONE_LABEL_GRP IN ('R(A)','R(B)','R(C)','R(D)','R(E)')" };
 const communityFacilities = [
   { name: 'United Christian Hospital', type: 'Hospital', lat: 22.3177, lng: 114.2277 },
   { name: 'Kwun Tong Promenade Shopping Cluster', type: 'Shopping mall', lat: 22.3132, lng: 114.2231 },
@@ -117,6 +109,7 @@ let suitabilityMap = null;
 let suitabilityLayer = null;
 let zoneMap = null;
 let zoneLayer = null;
+let zoneOzpOverlay = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
 const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706'];
@@ -333,19 +326,13 @@ function renderZoneMap(rows, selected) {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(zoneMap);
+      zoneMap.createPane('ozpPane');
+      zoneMap.getPane('ozpPane').style.zIndex = 350;
+      zoneMap.getPane('ozpPane').style.pointerEvents = 'none';
       zoneLayer = L.layerGroup().addTo(zoneMap);
+      zoneMap.on('moveend zoomend resize', updateOzpResidentialOverlay);
     }
     zoneLayer.clearLayers();
-    residentialZones.forEach(zone => {
-      zone.polygons.forEach(poly => {
-        L.polygon(poly, {
-          color: zone.color,
-          weight: 2,
-          fillColor: zone.color,
-          fillOpacity: 0.22
-        }).bindPopup('<strong>'+h(zone.type)+'</strong>'+h(zone.label)).addTo(zoneLayer);
-      });
-    });
     rows.forEach(b => {
       L.circleMarker([b.lat, b.lng], {
         radius: b.id === selected.id ? 7 : 4,
@@ -355,15 +342,56 @@ function renderZoneMap(rows, selected) {
         fillOpacity: 0.92
       }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Current vacancy: '+h(b.vacancy)+'%').addTo(zoneLayer);
     });
-    zoneMap.fitBounds([[22.22,113.95],[22.46,114.25]], { padding: [24, 24] });
-    setTimeout(() => zoneMap.invalidateSize(), 0);
+    setTimeout(() => {
+      zoneMap.invalidateSize();
+      fitZoneMap();
+      updateOzpResidentialOverlay();
+    }, 0);
     if (!document.querySelector('#zoneMapPanel .zone-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend zone-legend">'+residentialZones.map(z => '<span><i style="background:'+z.color+'"></i>'+h(z.type)+'</span>').join('')+'</div>');
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend zone-legend">'+ozpResidentialGroups.map(z => '<span><i style="background:'+z.color+'"></i>'+h(z.code)+'</span>').join('')+'<span class="source-text">Town Planning Board OZP</span></div>');
     }
     return;
   }
   el.classList.add('fallback');
   el.innerHTML = '<div class="empty-state">Residential zone map requires the Leaflet map library.</div>';
+}
+function fitZoneMap() {
+  if (zoneMap) zoneMap.fitBounds([[22.22,113.95],[22.46,114.25]], { padding: [24, 24] });
+}
+function ozpExportUrl() {
+  const bounds = zoneMap.getBounds();
+  const size = zoneMap.getSize();
+  const params = new URLSearchParams({
+    bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(','),
+    bboxSR: '4326',
+    imageSR: '4326',
+    size: Math.max(320, size.x) + ',' + Math.max(240, size.y),
+    format: 'png32',
+    transparent: 'true',
+    layers: 'show:1015',
+    layerDefs: JSON.stringify(ozpLayerDefs),
+    f: 'image'
+  });
+  return ozpServiceUrl + '?' + params.toString();
+}
+function updateOzpResidentialOverlay() {
+  if (!zoneMap) return;
+  const bounds = zoneMap.getBounds();
+  const image = L.imageOverlay(ozpExportUrl(), bounds, {
+    pane: 'ozpPane',
+    opacity: 0.72,
+    attribution: 'Planning Data from Town Planning Board'
+  });
+  image.on('load', () => {
+    if (zoneOzpOverlay) zoneMap.removeLayer(zoneOzpOverlay);
+    zoneOzpOverlay = image;
+  });
+  image.on('error', () => {
+    if (!document.querySelector('#zoneMapPanel .ozp-warning')) {
+      document.getElementById('zoneMapPanel').insertAdjacentHTML('beforeend', '<div class="empty-state ozp-warning">Official OZP residential zoning layer is temporarily unavailable.</div>');
+    }
+  });
+  image.addTo(zoneMap);
 }
 function renderProfile(b) {
   const catchment = catchmentFor(b);
@@ -459,7 +487,11 @@ function init() {
     document.getElementById(tab.dataset.tab).classList.add('active');
     if (tab.dataset.tab === 'map') {
       if (suitabilityMap) setTimeout(() => suitabilityMap.invalidateSize(), 0);
-      if (zoneMap) setTimeout(() => zoneMap.invalidateSize(), 0);
+      if (zoneMap) setTimeout(() => {
+        zoneMap.invalidateSize();
+        fitZoneMap();
+        updateOzpResidentialOverlay();
+      }, 0);
     }
   });
   ['search','district','zoning','ownership','risk','compatibility'].forEach(id => document.getElementById(id).oninput = e => { state.filters[id] = e.target.value; render(); });
