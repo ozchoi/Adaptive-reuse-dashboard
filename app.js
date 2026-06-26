@@ -326,7 +326,9 @@ function renderScenarios() {
   const el = document.getElementById('scenarioComparison');
   el.innerHTML = Object.entries(scenarios).filter(([k])=>k!=='balanced').map(([k,s]) => {
     const r = scored(s.weights).slice(0,4);
-    return '<div class="scenario-card"><h3>'+h(s.label)+'</h3><ol>'+r.map(b=>'<li>'+h(b.name)+' <strong>'+h(b.score)+'</strong></li>').join('')+'</ol></div>';
+    const nw = normalisedWeights(s.weights);
+    const emphasis = dimensions.map(([key,label], i) => ({ label, weight: Math.round(nw[i]) })).sort((a,b)=>b.weight-a.weight).slice(0,4);
+    return '<div class="scenario-card"><h3>'+h(s.label)+'</h3><p>'+h(s.summary)+'</p><div class="scenario-emphasis"><span>Higher emphasis</span>'+emphasis.map(f => '<strong>'+h(f.label)+' '+h(f.weight)+'%</strong>').join('')+'</div><ol>'+r.map(b=>'<li>'+h(b.name)+' <strong>'+h(b.score)+'</strong></li>').join('')+'</ol></div>';
   }).join('');
   document.querySelectorAll('#scenarioButtons button').forEach(btn => btn.classList.toggle('active', btn.dataset.scenario === state.scenario));
 }
