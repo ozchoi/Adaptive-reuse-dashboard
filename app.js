@@ -135,6 +135,19 @@ function distanceMeters(a, b) {
 function nearby(items, selected, radius = 500) {
   return items.map(item => ({...item, distance: distanceMeters(selected, item)})).filter(item => item.distance <= radius).sort((a,b)=>a.distance-b.distance);
 }
+function catchmentFor(building) {
+  const facilities = nearby(communityFacilities, building, 500);
+  const stations = nearby(mtrStations, building, 500).map(station => ({...station, type: 'MTR'}));
+  return [...facilities, ...stations].sort((a,b)=>a.distance-b.distance);
+}
+function catchmentSummary(items) {
+  return [
+    ['Hospitals', items.filter(item => item.type === 'Hospital').length],
+    ['Shopping malls', items.filter(item => item.type === 'Shopping mall').length],
+    ['Wet markets', items.filter(item => item.type === 'Wet market').length],
+    ['MTR stations', items.filter(item => item.type === 'MTR').length]
+  ];
+}
 function clamp(value) { return Math.max(0, Math.min(100, Math.round(value))); }
 function weightedAverage(items) { return clamp(items.reduce((sum, [value, weight]) => sum + value * weight, 0)); }
 function compatibilityScore(level) { return ({ High: 86, Medium: 62, Low: 34 })[level] || 50; }
@@ -234,6 +247,7 @@ function renderFilterSummary(visible, total) {
 }
 function renderMap(rows, selected) {
   const el = document.getElementById('mapPanel');
+  const catchment = catchmentFor(selected);
   if (window.L) {
     el.classList.remove('fallback');
     el.querySelectorAll('.empty-state').forEach(node => node.remove());
@@ -252,7 +266,7 @@ function renderMap(rows, selected) {
       weight: 2,
       fillColor: '#2563eb',
       fillOpacity: 0.08
-    }).bindPopup('<strong>500 m catchment</strong>'+h(selected.name)).addTo(suitabilityLayer);
+    }).bindPopup('<strong>500 m community catchment</strong>'+h(selected.name)+'<br>'+h(catchment.length)+' amenities and stations identified').addTo(suitabilityLayer);
     rows.forEach(b => {
       const marker = L.circleMarker([b.lat, b.lng], {
         radius: b.id === selected.id ? 11 : Math.max(7, Math.min(14, b.floorArea / 1800)),
@@ -265,7 +279,7 @@ function renderMap(rows, selected) {
       marker.addTo(suitabilityLayer);
       if (b.id === selected.id) marker.openPopup();
     });
-    nearby(communityFacilities, selected, 500).forEach(f => {
+    catchment.filter(item => item.type !== 'MTR').forEach(f => {
       L.circleMarker([f.lat, f.lng], {
         radius: 6,
         color: '#ffffff',
@@ -274,7 +288,7 @@ function renderMap(rows, selected) {
         fillOpacity: 0.95
       }).bindPopup('<strong>'+h(f.name)+'</strong>'+h(f.type)+'<br>'+h(f.distance)+' m from selected building').addTo(suitabilityLayer);
     });
-    nearby(mtrStations, selected, 500).forEach(station => {
+    catchment.filter(item => item.type === 'MTR').forEach(station => {
       L.circleMarker([station.lat, station.lng], {
         radius: 7,
         color: '#ffffff',
@@ -352,19 +366,16 @@ function renderZoneMap(rows, selected) {
   el.innerHTML = '<div class="empty-state">Residential zone map requires the Leaflet map library.</div>';
 }
 function renderProfile(b) {
-  const facilities = nearby(communityFacilities, b, 500);
-  const stations = nearby(mtrStations, b, 500);
-  const summary = [
-    ['Hospitals', facilities.filter(f => f.type === 'Hospital').length],
-    ['Shopping malls', facilities.filter(f => f.type === 'Shopping mall').length],
-    ['Wet markets', facilities.filter(f => f.type === 'Wet market').length],
-    ['MTR stations', stations.length]
-  ];
-  const nearestStation = stations[0] ? stations[0].name + ' (' + stations[0].distance + ' m)' : 'No MTR station within 500 m';
+  const catchment = catchmentFor(b);
+  const summary = catchmentSummary(catchment);
+  const nearestStation = catchment.find(item => item.type === 'MTR');
+  const catchmentList = catchment.length
+    ? '<ul class="catchment-list">'+catchment.map(item => '<li><span class="catchment-dot" style="background:'+facilityColor[item.type]+'"></span><strong>'+h(item.name)+'</strong><em>'+h(item.type)+' · '+h(item.distance)+' m</em></li>').join('')+'</ul>'
+    : '<p class="muted-note">No listed community facilities or MTR stations fall inside the 500 m catchment.</p>';
   document.getElementById('buildingProfile').innerHTML =
     '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+' suitability</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
     '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>Storeys</dt><dd>'+h(b.storeys)+'</dd></div><div><dt>Building height</dt><dd>'+h(b.height)+' m</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
-    '<h3>500 m community catchment</h3><dl>'+summary.map(([label,value]) => '<div><dt>'+h(label)+'</dt><dd>'+h(value)+'</dd></div>').join('')+'<div><dt>Nearest MTR</dt><dd>'+h(nearestStation)+'</dd></div></dl>' +
+    '<h3>500 m community catchment</h3><p class="muted-note">Amenities shown on the GIS map inside the selected building radius.</p><dl>'+summary.map(([label,value]) => '<div><dt>'+h(label)+'</dt><dd>'+h(value)+'</dd></div>').join('')+'<div><dt>Nearest MTR</dt><dd>'+h(nearestStation ? nearestStation.name + ' (' + nearestStation.distance + ' m)' : 'None within 500 m')+'</dd></div></dl>'+catchmentList +
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
 }
 function renderTable(rows) {

@@ -79,6 +79,12 @@ input[type="range"] { padding: 0; accent-color: var(--teal); }
 dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 dt { color: var(--muted); font-size: 12px; }
 dd { margin: 2px 0 0; font-weight: 750; }
+.muted-note { margin: -4px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.catchment-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.catchment-list li { display: grid; grid-template-columns: 10px 1fr; gap: 8px 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #f8fafc; }
+.catchment-list strong { min-width: 0; font-size: 13px; }
+.catchment-list em { grid-column: 2; color: var(--muted); font-size: 12px; font-style: normal; }
+.catchment-dot { width: 10px; height: 10px; border-radius: 50%; }
 .table-wrap { overflow: auto; max-height: 680px; border: 1px solid var(--line); border-radius: 8px; }
 table { width: 1900px; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 9px 10px; border-bottom: 1px solid #eef2f7; text-align: left; }
