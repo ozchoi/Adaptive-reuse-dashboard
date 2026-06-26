@@ -49,10 +49,29 @@ const scenarios = {
   market: { label: 'Market-driven scenario', summary: 'Prioritises owner investment logic, market absorption, governance and programme risk.', weights: [16,7,9,12,8,8,7,4,5,18,6] },
   community: { label: 'Community-impact scenario', summary: 'Prioritises district capacity, neighbourhood compatibility, transport and housing benefit.', weights: [14,6,4,5,9,6,13,16,16,5,6] }
 };
-const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, maxAge: 80, maxMtr: 1200 };
+const residentialZones = [
+  { type: 'Residential A', label: 'Urban high-density residential', color: '#2563eb', polygons: [
+    [[22.276,114.127],[22.291,114.127],[22.291,114.225],[22.276,114.225]],
+    [[22.304,114.156],[22.344,114.156],[22.344,114.218],[22.304,114.218]],
+    [[22.361,114.108],[22.376,114.108],[22.376,114.130],[22.361,114.130]]
+  ]},
+  { type: 'Residential B', label: 'Medium-density residential and new-town context', color: '#0f766e', polygons: [
+    [[22.382,114.176],[22.414,114.176],[22.414,114.215],[22.382,114.215]],
+    [[22.384,113.956],[22.410,113.956],[22.410,114.005],[22.384,114.005]],
+    [[22.431,114.016],[22.458,114.016],[22.458,114.060],[22.431,114.060]]
+  ]},
+  { type: 'Residential C', label: 'Lower-density residential interface', color: '#d97706', polygons: [
+    [[22.231,114.139],[22.258,114.139],[22.258,114.181],[22.231,114.181]],
+    [[22.255,114.225],[22.276,114.225],[22.276,114.248],[22.255,114.248]],
+    [[22.386,114.178],[22.406,114.178],[22.406,114.205],[22.386,114.205]]
+  ]}
+];
+const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxMtr: 1200 };
 let state = { scenario: 'balanced', weights: scenarios.balanced.weights.slice(), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters} };
 let suitabilityMap = null;
 let suitabilityLayer = null;
+let zoneMap = null;
+let zoneLayer = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706'];
 const fmt = new Intl.NumberFormat('en-HK');
@@ -77,7 +96,7 @@ function normalisedWeights(weights) { const total = weights.reduce((a,b)=>a+b,0)
 function score(building, weights = state.weights) { const nw = normalisedWeights(weights); return Math.round(dimensions.reduce((sum, [key], i) => sum + building[key] * nw[i] / 100, 0)); }
 function category(s) { return s >= 70 ? 'High' : s >= 40 ? 'Medium' : 'Low'; }
 function scored(weights = state.weights) { return buildings.map(b => ({...b, score: score(b, weights), category: category(score(b, weights))})).sort((a,b)=>b.score-a.score); }
-function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.age <= state.filters.maxAge && b.mtr <= state.filters.maxMtr); }
+function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.vacancy >= state.filters.minVacancy && b.age <= state.filters.maxAge && b.mtr <= state.filters.maxMtr); }
 function sortedRows(rows) { const {key, dir} = state.sort; const sign = dir === 'asc' ? 1 : -1; return rows.slice().sort((a,b) => { const av = a[key]; const bv = b[key]; if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign; return String(av).localeCompare(String(bv)) * sign; }); }
 function options(id, values) { const el = document.getElementById(id); el.innerHTML = ['All', ...new Set(values)].sort((a,b)=> a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)).map(v => '<option>'+h(v)+'</option>').join(''); }
 function bar(parent, label, value, max = 100, color = '#0f766e') { parent.insertAdjacentHTML('beforeend', '<div class="bar-row"><span>'+h(label)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.max(2,value/max*100)+'%;background:'+color+'"></div></div><strong>'+h(value)+'</strong></div>'); }
@@ -144,6 +163,7 @@ function render() {
   if (rows.length) rows.slice(0,8).forEach(b => bar(top, b.id + ' ' + b.name, b.score, 100, categoryColor[b.category]));
   else empty(top, 'No buildings match the current filters.');
   renderMap(rows, selected);
+  renderZoneMap(rows, selected);
   renderProfile(selected);
   renderTable(rows);
   renderWeights(selected);
@@ -206,6 +226,49 @@ function renderMap(rows, selected) {
   });
   if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
   el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'</div>');
+}
+function renderZoneMap(rows, selected) {
+  const el = document.getElementById('zoneMapPanel');
+  if (!el) return;
+  if (window.L) {
+    el.classList.remove('fallback');
+    if (!zoneMap) {
+      zoneMap = L.map(el, { scrollWheelZoom: false }).setView([22.326, 114.17], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(zoneMap);
+      zoneLayer = L.layerGroup().addTo(zoneMap);
+    }
+    zoneLayer.clearLayers();
+    residentialZones.forEach(zone => {
+      zone.polygons.forEach(poly => {
+        L.polygon(poly, {
+          color: zone.color,
+          weight: 2,
+          fillColor: zone.color,
+          fillOpacity: 0.22
+        }).bindPopup('<strong>'+h(zone.type)+'</strong>'+h(zone.label)).addTo(zoneLayer);
+      });
+    });
+    rows.forEach(b => {
+      L.circleMarker([b.lat, b.lng], {
+        radius: b.id === selected.id ? 7 : 4,
+        color: '#111827',
+        weight: b.id === selected.id ? 2 : 1,
+        fillColor: categoryColor[b.category],
+        fillOpacity: 0.92
+      }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Current vacancy: '+h(b.vacancy)+'%').addTo(zoneLayer);
+    });
+    zoneMap.fitBounds([[22.22,113.95],[22.46,114.25]], { padding: [24, 24] });
+    setTimeout(() => zoneMap.invalidateSize(), 0);
+    if (!document.querySelector('#zoneMapPanel .zone-legend')) {
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend zone-legend">'+residentialZones.map(z => '<span><i style="background:'+z.color+'"></i>'+h(z.type)+'</span>').join('')+'</div>');
+    }
+    return;
+  }
+  el.classList.add('fallback');
+  el.innerHTML = '<div class="empty-state">Residential zone map requires the Leaflet map library.</div>';
 }
 function renderProfile(b) {
   document.getElementById('buildingProfile').innerHTML =
@@ -271,6 +334,7 @@ function syncFilterControls() {
     if (el) el.value = value;
   });
   document.getElementById('minScoreValue').textContent = state.filters.minScore;
+  document.getElementById('minVacancyValue').textContent = state.filters.minVacancy;
   document.getElementById('maxAgeValue').textContent = state.filters.maxAge;
   document.getElementById('maxMtrValue').textContent = state.filters.maxMtr;
 }
@@ -287,10 +351,13 @@ function init() {
     document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'map' && suitabilityMap) setTimeout(() => suitabilityMap.invalidateSize(), 0);
+    if (tab.dataset.tab === 'map') {
+      if (suitabilityMap) setTimeout(() => suitabilityMap.invalidateSize(), 0);
+      if (zoneMap) setTimeout(() => zoneMap.invalidateSize(), 0);
+    }
   });
   ['search','district','zoning','ownership','risk','compatibility'].forEach(id => document.getElementById(id).oninput = e => { state.filters[id] = e.target.value; render(); });
-  [['minScore','minScoreValue'],['maxAge','maxAgeValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
+  [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
   document.getElementById('resetFilters').onclick = () => { state.filters = {...defaultFilters}; syncFilterControls(); render(); };
   document.getElementById('exportCsv').onclick = exportCsv;
   syncFilterControls();

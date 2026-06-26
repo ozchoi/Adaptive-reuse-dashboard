@@ -49,6 +49,9 @@ input[type="range"] { padding: 0; accent-color: var(--teal); }
 .grid { display: grid; gap: 16px; }
 .two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .map-grid { grid-template-columns: minmax(0, 1fr) 360px; }
+.zoning-panel { margin-top: 16px; }
+.map-note { margin: -4px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.zone-map { height: 500px; }
 .scoring-grid { grid-template-columns: minmax(0, 1fr) 420px; }
 .kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpi { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }

@@ -32,6 +32,7 @@
         <label>Environmental risk<select id="risk"></select></label>
         <label>Residential compatibility<select id="compatibility"></select></label>
         <label>Minimum score <span id="minScoreValue">0</span><input id="minScore" type="range" min="0" max="100" value="0" /></label>
+        <label>Minimum current vacancy <span id="minVacancyValue">0</span>%<input id="minVacancy" type="range" min="0" max="50" value="0" /></label>
         <label>Maximum age <span id="maxAgeValue">80</span><input id="maxAge" type="range" min="20" max="80" value="80" /></label>
         <label>Maximum MTR distance <span id="maxMtrValue">1200</span> m<input id="maxMtr" type="range" min="250" max="1200" value="1200" /></label>
       </section>
@@ -65,6 +66,11 @@
           <article class="panel"><h2>GIS Suitability Map</h2><div id="mapPanel" class="map-panel"></div></article>
           <article id="buildingProfile" class="panel"></article>
         </div>
+        <article class="panel zoning-panel">
+          <h2>Residential Zone Distribution</h2>
+          <p class="map-note">Indicative Residential A/B/C zoning context for screening. Replace with official OZP GIS polygons when available.</p>
+          <div id="zoneMapPanel" class="map-panel zone-map"></div>
+        </article>
       </section>
 
       <section id="comparison" class="tab-panel">
