@@ -68,6 +68,49 @@ const residentialZones = [
     [[22.386,114.178],[22.406,114.178],[22.406,114.205],[22.386,114.205]]
   ]}
 ];
+const communityFacilities = [
+  { name: 'United Christian Hospital', type: 'Hospital', lat: 22.3177, lng: 114.2277 },
+  { name: 'Kwun Tong Promenade Shopping Cluster', type: 'Shopping mall', lat: 22.3132, lng: 114.2231 },
+  { name: 'Shui Wo Street Market', type: 'Wet market', lat: 22.3163, lng: 114.2250 },
+  { name: 'Mikiki', type: 'Shopping mall', lat: 22.3339, lng: 114.1968 },
+  { name: 'San Po Kong Market', type: 'Wet market', lat: 22.3359, lng: 114.1971 },
+  { name: 'Prince of Wales Hospital', type: 'Hospital', lat: 22.3796, lng: 114.2017 },
+  { name: 'Fo Tan Cooked Food Market', type: 'Wet market', lat: 22.3950, lng: 114.1942 },
+  { name: 'Nina Mall', type: 'Shopping mall', lat: 22.3695, lng: 114.1148 },
+  { name: 'Tsuen Wan Market', type: 'Wet market', lat: 22.3717, lng: 114.1161 },
+  { name: 'Pamela Youde Nethersole Eastern Hospital', type: 'Hospital', lat: 22.2691, lng: 114.2362 },
+  { name: 'New Jade Shopping Arcade', type: 'Shopping mall', lat: 22.2649, lng: 114.2368 },
+  { name: 'Chai Wan Market', type: 'Wet market', lat: 22.2656, lng: 114.2376 },
+  { name: 'Princess Margaret Hospital', type: 'Hospital', lat: 22.3403, lng: 114.1343 },
+  { name: 'D2 Place', type: 'Shopping mall', lat: 22.3360, lng: 114.1488 },
+  { name: 'Cheung Sha Wan Market', type: 'Wet market', lat: 22.3375, lng: 114.1511 },
+  { name: 'Tuen Mun Hospital', type: 'Hospital', lat: 22.4071, lng: 113.9767 },
+  { name: 'V City', type: 'Shopping mall', lat: 22.3951, lng: 113.9742 },
+  { name: 'Tuen Mun San Hui Market', type: 'Wet market', lat: 22.3976, lng: 113.9748 },
+  { name: 'YOHO Mall', type: 'Shopping mall', lat: 22.4444, lng: 114.0363 },
+  { name: 'Yuen Long Market', type: 'Wet market', lat: 22.4453, lng: 114.0288 },
+  { name: 'Queen Mary Hospital', type: 'Hospital', lat: 22.2705, lng: 114.1319 },
+  { name: 'Marina Square', type: 'Shopping mall', lat: 22.2420, lng: 114.1547 },
+  { name: 'Aberdeen Market', type: 'Wet market', lat: 22.2483, lng: 114.1559 },
+  { name: 'Mong Kok Market', type: 'Wet market', lat: 22.3199, lng: 114.1692 },
+  { name: 'MOKO', type: 'Shopping mall', lat: 22.3227, lng: 114.1727 },
+  { name: 'The Southside', type: 'Shopping mall', lat: 22.2481, lng: 114.1685 },
+  { name: 'Wong Chuk Hang Market', type: 'Wet market', lat: 22.2494, lng: 114.1687 }
+];
+const mtrStations = [
+  { name: 'Kwun Tong Station', lat: 22.3124, lng: 114.2261 },
+  { name: 'Diamond Hill Station', lat: 22.3401, lng: 114.2013 },
+  { name: 'Fo Tan Station', lat: 22.3956, lng: 114.1989 },
+  { name: 'Tsuen Wan West Station', lat: 22.3686, lng: 114.1096 },
+  { name: 'Chai Wan Station', lat: 22.2646, lng: 114.2371 },
+  { name: 'Kwai Hing Station', lat: 22.3632, lng: 114.1311 },
+  { name: 'Lai Chi Kok Station', lat: 22.3372, lng: 114.1480 },
+  { name: 'Tuen Mun Station', lat: 22.3952, lng: 113.9731 },
+  { name: 'Yuen Long Station', lat: 22.4461, lng: 114.0346 },
+  { name: 'Lei Tung Station', lat: 22.2427, lng: 114.1565 },
+  { name: 'Mong Kok East Station', lat: 22.3222, lng: 114.1720 },
+  { name: 'Wong Chuk Hang Station', lat: 22.2481, lng: 114.1680 }
+];
 const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxHeight: 220, maxStoreys: 60, maxMtr: 1200 };
 let state = { scenario: 'balanced', weights: scenarios.balanced.weights.slice(), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters} };
 let suitabilityMap = null;
@@ -75,9 +118,23 @@ let suitabilityLayer = null;
 let zoneMap = null;
 let zoneLayer = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
+const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706'];
 const fmt = new Intl.NumberFormat('en-HK');
 function h(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function distanceMeters(a, b) {
+  const toRad = value => value * Math.PI / 180;
+  const earth = 6371000;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const value = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return Math.round(earth * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value)));
+}
+function nearby(items, selected, radius = 500) {
+  return items.map(item => ({...item, distance: distanceMeters(selected, item)})).filter(item => item.distance <= radius).sort((a,b)=>a.distance-b.distance);
+}
 function clamp(value) { return Math.max(0, Math.min(100, Math.round(value))); }
 function weightedAverage(items) { return clamp(items.reduce((sum, [value, weight]) => sum + value * weight, 0)); }
 function compatibilityScore(level) { return ({ High: 86, Medium: 62, Low: 34 })[level] || 50; }
@@ -189,6 +246,13 @@ function renderMap(rows, selected) {
       suitabilityLayer = L.layerGroup().addTo(suitabilityMap);
     }
     suitabilityLayer.clearLayers();
+    L.circle([selected.lat, selected.lng], {
+      radius: 500,
+      color: '#2563eb',
+      weight: 2,
+      fillColor: '#2563eb',
+      fillOpacity: 0.08
+    }).bindPopup('<strong>500 m catchment</strong>'+h(selected.name)).addTo(suitabilityLayer);
     rows.forEach(b => {
       const marker = L.circleMarker([b.lat, b.lng], {
         radius: b.id === selected.id ? 11 : Math.max(7, Math.min(14, b.floorArea / 1800)),
@@ -201,13 +265,28 @@ function renderMap(rows, selected) {
       marker.addTo(suitabilityLayer);
       if (b.id === selected.id) marker.openPopup();
     });
-    const boundsSource = rows.length ? rows : scored();
-    if (boundsSource.length) {
-      suitabilityMap.fitBounds(boundsSource.map(b => [b.lat, b.lng]), { padding: [36, 36], maxZoom: 12 });
-    }
+    nearby(communityFacilities, selected, 500).forEach(f => {
+      L.circleMarker([f.lat, f.lng], {
+        radius: 6,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: facilityColor[f.type],
+        fillOpacity: 0.95
+      }).bindPopup('<strong>'+h(f.name)+'</strong>'+h(f.type)+'<br>'+h(f.distance)+' m from selected building').addTo(suitabilityLayer);
+    });
+    nearby(mtrStations, selected, 500).forEach(station => {
+      L.circleMarker([station.lat, station.lng], {
+        radius: 7,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: facilityColor.MTR,
+        fillOpacity: 0.95
+      }).bindPopup('<strong>'+h(station.name)+'</strong>MTR station<br>'+h(station.distance)+' m from selected building').addTo(suitabilityLayer);
+    });
+    suitabilityMap.setView([selected.lat, selected.lng], 15);
     setTimeout(() => suitabilityMap.invalidateSize(), 0);
     if (!document.querySelector('#mapPanel .map-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'</div>');
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span></div>');
     }
     if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
     return;
@@ -273,9 +352,19 @@ function renderZoneMap(rows, selected) {
   el.innerHTML = '<div class="empty-state">Residential zone map requires the Leaflet map library.</div>';
 }
 function renderProfile(b) {
+  const facilities = nearby(communityFacilities, b, 500);
+  const stations = nearby(mtrStations, b, 500);
+  const summary = [
+    ['Hospitals', facilities.filter(f => f.type === 'Hospital').length],
+    ['Shopping malls', facilities.filter(f => f.type === 'Shopping mall').length],
+    ['Wet markets', facilities.filter(f => f.type === 'Wet market').length],
+    ['MTR stations', stations.length]
+  ];
+  const nearestStation = stations[0] ? stations[0].name + ' (' + stations[0].distance + ' m)' : 'No MTR station within 500 m';
   document.getElementById('buildingProfile').innerHTML =
     '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+' suitability</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
     '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>Storeys</dt><dd>'+h(b.storeys)+'</dd></div><div><dt>Building height</dt><dd>'+h(b.height)+' m</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
+    '<h3>500 m community catchment</h3><dl>'+summary.map(([label,value]) => '<div><dt>'+h(label)+'</dt><dd>'+h(value)+'</dd></div>').join('')+'<div><dt>Nearest MTR</dt><dd>'+h(nearestStation)+'</dd></div></dl>' +
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
 }
 function renderTable(rows) {
