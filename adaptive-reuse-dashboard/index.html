@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hong Kong Industrial Building Adaptive Reuse Decision Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Suitability Model for Industrial-to-Residential Adaptive Reuse in Hong Kong</h1>
+      <p class="lede">A weighted critical-factor decision-support dashboard for evaluating vacant industrial buildings in Hong Kong.</p>
+      <p class="credit">&copy; 2026 Chun Yin Choi. Dashboard developed for the research project “Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use in Hong Kong,” led by Prof. Ruffina Thilakaratne, Department of Architecture, Chu Hai College of Higher Education.</p>
+    </div>
+    <div class="header-actions">
+      <button id="resetFilters" class="ghost-button" type="button">Reset filters</button>
+      <button id="exportCsv" class="primary-button" type="button">Export ranked CSV</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>Filters</h2>
+        <div id="filterSummary" class="filter-summary"></div>
+        <label>Search<input id="search" type="search" placeholder="Building, district, address" /></label>
+        <label>District<select id="district"></select></label>
+        <label>Zoning<select id="zoning"></select></label>
+        <label>Ownership<select id="ownership"></select></label>
+        <label>Environmental risk<select id="risk"></select></label>
+        <label>Residential compatibility<select id="compatibility"></select></label>
+        <label>Minimum score <span id="minScoreValue">0</span><input id="minScore" type="range" min="0" max="100" value="0" /></label>
+        <label>Maximum age <span id="maxAgeValue">80</span><input id="maxAge" type="range" min="20" max="80" value="80" /></label>
+        <label>Maximum MTR distance <span id="maxMtrValue">1200</span> m<input id="maxMtr" type="range" min="250" max="1200" value="1200" /></label>
+      </section>
+
+      <section class="panel">
+        <h2>Scenario</h2>
+        <div id="scenarioButtons" class="scenario-list"></div>
+      </section>
+    </aside>
+
+    <section class="content">
+      <nav class="tabs" aria-label="Dashboard tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="map">GIS Map</button>
+        <button class="tab" data-tab="comparison">Comparison</button>
+        <button class="tab" data-tab="scoring">Scoring Model</button>
+        <button class="tab" data-tab="scenarios">Scenario Analysis</button>
+      </nav>
+
+      <section id="overview" class="tab-panel active">
+        <div id="kpis" class="kpi-grid"></div>
+        <div class="grid two">
+          <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>
+          <article class="panel"><h2>District-Level Comparison</h2><div id="districtChart" class="bars"></div></article>
+        </div>
+        <article class="panel"><h2>Top-Ranked Buildings</h2><div id="topChart" class="bars wide"></div></article>
+      </section>
+
+      <section id="map" class="tab-panel">
+        <div class="grid map-grid">
+          <article class="panel"><h2>GIS Suitability Map</h2><div id="mapPanel" class="map-panel"></div></article>
+          <article id="buildingProfile" class="panel"></article>
+        </div>
+      </section>
+
+      <section id="comparison" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Building Comparison Table</h2>
+            <p id="tableMeta"></p>
+          </div>
+          <div class="table-wrap"><table id="comparisonTable"></table></div>
+        </article>
+      </section>
+
+      <section id="scoring" class="tab-panel">
+        <div class="grid scoring-grid">
+          <article class="panel"><h2>Weighted Scoring Model</h2><div id="weightSliders"></div></article>
+          <article class="panel">
+            <h2>Building Index Comparison</h2>
+            <div class="compare-controls">
+              <label>Compare with<select id="compareOne"></select></label>
+              <label>Compare with<select id="compareTwo"></select></label>
+            </div>
+            <div id="radarChart" class="radar"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="scenarios" class="tab-panel">
+        <article class="panel"><h2>Scenario Ranking Comparison</h2><div id="scenarioComparison" class="scenario-cards"></div></article>
+      </section>
+    </section>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
