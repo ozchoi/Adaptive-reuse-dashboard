@@ -11,7 +11,7 @@
   <header class="app-header">
     <div>
       <h1>Suitability Model for Industrial-to-Residential Adaptive Reuse in Hong Kong</h1>
-      <p class="lede">A weighted critical-factor decision-support dashboard for evaluating vacant industrial buildings in Hong Kong.</p>
+      <p class="lede">A research workflow dashboard linking literature-derived critical factors, survey preparation, stakeholder input, final weights and adaptive reuse suitability modelling.</p>
       <p class="credit">&copy; 2026 Chun Yin Oz Choi. Dashboard developed for the research project “Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use in Hong Kong,” led by Prof. Ruffina Thilakaratne, Department of Architecture, Chu Hai College of Higher Education.</p>
     </div>
     <div class="header-actions">
@@ -48,6 +48,10 @@
     <section class="content">
       <nav class="tabs" aria-label="Dashboard tabs">
         <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="factors">Critical Factors</button>
+        <button class="tab" data-tab="survey">Survey Criteria</button>
+        <button class="tab" data-tab="stakeholders">Stakeholder Input</button>
+        <button class="tab" data-tab="weighted">Final Weights</button>
         <button class="tab" data-tab="map">GIS Map</button>
         <button class="tab" data-tab="comparison">Comparison</button>
         <button class="tab" data-tab="scoring">Scoring Model</button>
@@ -55,12 +59,95 @@
       </nav>
 
       <section id="overview" class="tab-panel active">
+        <article class="panel workflow-panel">
+          <h2>Research Workflow</h2>
+          <div class="workflow-steps">
+            <div><strong>1</strong><span>Literature review</span></div>
+            <div><strong>2</strong><span>Critical factors</span></div>
+            <div><strong>3</strong><span>Survey criteria</span></div>
+            <div><strong>4</strong><span>Stakeholder input</span></div>
+            <div><strong>5</strong><span>Final weights</span></div>
+            <div><strong>6</strong><span>Suitability model</span></div>
+            <div><strong>7</strong><span>Scenario analysis</span></div>
+            <div><strong>8</strong><span>Workshop validation</span></div>
+          </div>
+        </article>
         <div id="kpis" class="kpi-grid"></div>
         <div class="grid two">
           <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>
           <article class="panel"><h2>District-Level Comparison</h2><div id="districtChart" class="bars"></div></article>
         </div>
         <article class="panel"><h2>Top-Ranked Buildings</h2><div id="topChart" class="bars wide"></div></article>
+      </section>
+
+      <section id="factors" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Critical Factors Library</h2>
+            <p id="factorMeta"></p>
+          </div>
+          <div id="factorDimensionSummary" class="dimension-summary"></div>
+          <div class="table-wrap research-table"><table id="factorsTable"></table></div>
+        </article>
+      </section>
+
+      <section id="survey" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Survey Criteria Preparation</h2>
+              <button id="exportSurveyCriteria" class="primary-button" type="button">Export survey CSV</button>
+            </div>
+            <p class="map-note">Selected literature-derived factors are converted into survey wording with a 1-5 importance scale.</p>
+            <div id="surveyCriteriaList" class="criteria-list"></div>
+          </article>
+          <article class="panel">
+            <h2>Survey Instrument Preview</h2>
+            <div id="surveyPreview" class="survey-preview"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="stakeholders" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <h2>Stakeholder Suggested Factors</h2>
+            <div class="form-grid">
+              <label>Factor name<input id="stakeholderFactorName" type="text" placeholder="e.g. Lift core conversion risk" /></label>
+              <label>Suggested by<input id="stakeholderSuggestedBy" type="text" placeholder="Name or workshop code" /></label>
+              <label>Stakeholder group<select id="stakeholderGroup"></select></label>
+              <label>Related dimension<select id="stakeholderDimension"></select></label>
+              <label class="wide-field">Comment<input id="stakeholderComment" type="text" placeholder="Brief rationale or field observation" /></label>
+            </div>
+            <button id="addStakeholderFactor" class="primary-button" type="button">Add suggested factor</button>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Merged Factor Set</h2>
+              <p id="mergedFactorMeta"></p>
+            </div>
+            <div id="stakeholderFactorList" class="criteria-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="weighted" class="tab-panel">
+        <div class="grid scoring-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Survey Weighting Results</h2>
+              <button id="applyFinalWeights" class="primary-button" type="button">Apply final weights</button>
+            </div>
+            <div id="weightingKpis" class="kpi-grid compact"></div>
+            <div id="finalWeightChart" class="bars wide"></div>
+          </article>
+          <article class="panel">
+            <h2>Stakeholder Group Differences</h2>
+            <div id="stakeholderDifferences" class="group-diff"></div>
+            <h2>Workshop Validation</h2>
+            <div id="workshopValidation" class="validation-list"></div>
+          </article>
+        </div>
       </section>
 
       <section id="map" class="tab-panel">
