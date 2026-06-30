@@ -106,7 +106,13 @@ const surveyResponses = {
   economic: { academics: [4,4,4,3], government: [4,3,4], industry: [5,5,5,4], community: [3,4,3] },
   environmental: { academics: [4,5,4,4], government: [4,4,4], industry: [3,4,3,4], community: [5,4,5] }
 };
-const stakeholderGroups = ['Academic / researcher','Government / statutory body','Industry / owner','Community / NGO','Professional consultant'];
+const stakeholderWeightGroups = [
+  { key: 'academics', label: 'Academic / researcher' },
+  { key: 'government', label: 'Government / statutory body' },
+  { key: 'industry', label: 'Industrial Unit Owner' },
+  { key: 'community', label: 'Community / NGO' }
+];
+const stakeholderGroups = [...stakeholderWeightGroups.map(group => group.label), 'Professional consultant'];
 const ozpResidentialGroups = [
   { code: 'R(A)', label: 'Residential (Group A)', color: 'rgb(150,18,8)' },
   { code: 'R(B)', label: 'Residential (Group B)', color: 'rgb(189,105,15)' },
@@ -163,7 +169,7 @@ const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 
 let state = { scenario: 'balanced', modelMode: 'baseline', weights: scenarios.balanced.weights.slice(), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-] };
+], surveyRatings: {}, surveyTopFactors: ['', '', ''], surveySubmitted: false, participantGroup: '', industrialOwnershipType: '', stakeholderGroupWeights: { academics: 25, government: 25, industry: 25, community: 25 } };
 let suitabilityMap = null;
 let suitabilityLayer = null;
 let zoneMap = null;
@@ -190,6 +196,9 @@ function dimensionLabel(key) { return (researchDimensions.find(([id]) => id === 
 function surveyQuestion(factor) {
   return 'How important is "' + factor.factor_name + '" when assessing whether an industrial building should be adaptively reused for residential use?';
 }
+function surveyRating(factorId) { return state.surveyRatings[factorId] ?? 50; }
+function selectedTopFactorIds() { return state.surveyTopFactors.filter(Boolean); }
+function stakeholderGroupLabel(key) { return (stakeholderWeightGroups.find(group => group.key === key) || { label: key }).label; }
 function flattenResponses(groups) { return Object.values(groups).flat(); }
 function mean(values) { return values.reduce((sum, value) => sum + value, 0) / (values.length || 1); }
 function median(values) {
@@ -206,7 +215,8 @@ function weightStats() {
     const groups = surveyResponses[key];
     const values = flattenResponses(groups);
     const groupMeans = Object.fromEntries(Object.entries(groups).map(([group, scores]) => [group, mean(scores)]));
-    return { key, label, mean: mean(values), median: median(values), std: stdDev(values), groupMeans };
+    const weightedMean = stakeholderWeightGroups.reduce((sum, group) => sum + (groupMeans[group.key] || 0) * state.stakeholderGroupWeights[group.key] / 100, 0);
+    return { key, label, mean: weightedMean, median: median(values), std: stdDev(values), groupMeans };
   });
   const total = rows.reduce((sum, row) => sum + row.mean, 0) || 1;
   return rows.map(row => ({...row, finalWeight: row.mean / total * 100}));
@@ -370,13 +380,97 @@ function renderFactorsLibrary() {
 }
 function renderSurveyCriteria() {
   const selected = selectedSurveyFactors();
-  document.getElementById('surveyCriteriaList').innerHTML = selected.map(factor =>
-    '<div class="criteria-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p>'+h(surveyQuestion(factor))+'</p><div class="rating-scale"><span>1 Not important</span><span>2</span><span>3</span><span>4</span><span>5 Very important</span></div></div>'
+  const ownershipQuestion = state.participantGroup === 'Industrial Unit Owner'
+    ? '<label>Ownership type of industrial unit<select id="industrialOwnershipType"><option value="">Select ownership type</option><option>Sole Ownership of Entire Building</option><option>Multi-ownership Buildings</option></select></label>'
+    : '';
+  document.getElementById('surveyCriteriaList').innerHTML =
+    '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+stakeholderWeightGroups.map(group => '<option>'+h(group.label)+'</option>').join('')+'</select></label>'+ownershipQuestion+'</div>' +
+    selected.map(factor =>
+    '<div class="criteria-card survey-slider-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p>'+h(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
+  ).join('');
+  const participantGroup = document.getElementById('surveyParticipantGroup');
+  participantGroup.value = state.participantGroup;
+  participantGroup.onchange = e => {
+    state.participantGroup = e.target.value;
+    if (state.participantGroup !== 'Industrial Unit Owner') state.industrialOwnershipType = '';
+    state.surveySubmitted = false;
+    renderSurveyCriteria();
+  };
+  const industrialOwnershipType = document.getElementById('industrialOwnershipType');
+  if (industrialOwnershipType) {
+    industrialOwnershipType.value = state.industrialOwnershipType;
+    industrialOwnershipType.onchange = e => {
+      state.industrialOwnershipType = e.target.value;
+      state.surveySubmitted = false;
+      updateSurveySummary();
+    };
+  }
+  document.querySelectorAll('[data-survey-rating]').forEach(input => input.oninput = e => {
+    const id = e.target.dataset.surveyRating;
+    state.surveyRatings[id] = Number(e.target.value);
+    state.surveySubmitted = false;
+    const value = document.getElementById('surveyValue-' + id);
+    if (value) value.textContent = e.target.value;
+    updateSurveySummary();
+  });
+  const optionsHtml = '<option value="">Select a factor</option>' + selected.map(factor => '<option value="'+h(factor.id)+'">'+h(factor.factor_name)+'</option>').join('');
+  const ranked = state.surveyTopFactors.map((factorId, index) =>
+    '<label>Rank '+(index + 1)+'<select data-top-factor="'+index+'">'+optionsHtml+'</select></label>'
   ).join('');
   document.getElementById('surveyPreview').innerHTML =
     '<div class="survey-banner"><strong>'+h(selected.length)+'</strong><span>criteria selected for survey</span></div>' +
-    selected.slice(0, 8).map((factor, index) => '<div class="survey-question"><span>Q'+(index + 1)+'</span><p>'+h(surveyQuestion(factor))+'</p></div>').join('') +
-    (selected.length > 8 ? '<p class="muted-note">'+h(selected.length - 8)+' additional criteria included in CSV export.</p>' : '');
+    '<div class="ranked-selects">'+ranked+'</div>' +
+    '<button id="submitSurvey" class="primary-button" type="button">Submit survey</button>' +
+    '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>';
+  document.querySelectorAll('[data-top-factor]').forEach(select => {
+    select.value = state.surveyTopFactors[Number(select.dataset.topFactor)] || '';
+    select.onchange = e => {
+      state.surveyTopFactors[Number(e.target.dataset.topFactor)] = e.target.value;
+      state.surveySubmitted = false;
+      updateSurveySummary();
+    };
+  });
+  document.getElementById('submitSurvey').onclick = submitSurvey;
+  updateSurveySummary();
+}
+function updateSurveySummary() {
+  const status = document.getElementById('surveySubmitStatus');
+  if (!status) return;
+  const selected = selectedSurveyFactors();
+  const rated = selected.filter(factor => state.surveyRatings[factor.id] !== undefined).length;
+  const topIds = selectedTopFactorIds();
+  const duplicateCount = topIds.length - new Set(topIds).size;
+  const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
+  const participantMessage = !state.participantGroup
+    ? 'Stakeholder group is required.'
+    : state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType
+      ? 'Industrial Unit Owner requires ownership type.'
+      : '';
+  const rankedNames = state.surveyTopFactors.map((id, index) => {
+    const factor = selected.find(item => item.id === id);
+    return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
+  }).filter(Boolean).join('');
+  const message = state.surveySubmitted
+    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span>'
+    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span>';
+  status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (duplicateCount || missingParticipant ? ' has-error' : '');
+  status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (duplicateCount ? '<span>Each top-3 rank must use a different factor.</span>' : '') + (rankedNames ? '<ol>'+rankedNames+'</ol>' : '');
+}
+function submitSurvey() {
+  const topIds = selectedTopFactorIds();
+  const status = document.getElementById('surveySubmitStatus');
+  const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
+  if (missingParticipant || topIds.length !== 3 || new Set(topIds).size !== 3) {
+    state.surveySubmitted = false;
+    updateSurveySummary();
+    if (status) status.insertAdjacentHTML('beforeend', '<span>Please complete the participant profile and choose three different factors for Rank 1, Rank 2 and Rank 3.</span>');
+    return;
+  }
+  selectedSurveyFactors().forEach(factor => {
+    if (state.surveyRatings[factor.id] === undefined) state.surveyRatings[factor.id] = surveyRating(factor.id);
+  });
+  state.surveySubmitted = true;
+  updateSurveySummary();
 }
 function renderStakeholderFactors() {
   const factors = state.stakeholderFactors;
@@ -403,15 +497,48 @@ function renderFinalWeights() {
   const chart = document.getElementById('finalWeightChart');
   chart.innerHTML = '';
   stats.forEach(row => bar(chart, row.label, Number(row.finalWeight.toFixed(1)), 16, '#2563eb'));
+  renderStakeholderWeightDistribution();
   document.getElementById('stakeholderDifferences').innerHTML = stats.map(row => {
-    const groups = Object.entries(row.groupMeans).map(([group,value]) => '<span><em>'+h(group)+'</em><strong>'+value.toFixed(1)+'</strong></span>').join('');
-    return '<div class="diff-card"><header><strong>'+h(row.label)+'</strong><span>mean '+row.mean.toFixed(2)+' | median '+row.median.toFixed(1)+' | SD '+row.std.toFixed(2)+' | final weight '+row.finalWeight.toFixed(1)+'%</span></header><div>'+groups+'</div></div>';
+    const groups = Object.entries(row.groupMeans).map(([group,value]) => '<span><em>'+h(stakeholderGroupLabel(group))+'</em><strong>'+value.toFixed(1)+'</strong></span>').join('');
+    return '<div class="diff-card"><header><strong>'+h(row.label)+'</strong><span>weighted mean '+row.mean.toFixed(2)+' | median '+row.median.toFixed(1)+' | SD '+row.std.toFixed(2)+' | final weight '+row.finalWeight.toFixed(1)+'%</span></header><div>'+groups+'</div></div>';
   }).join('');
   document.getElementById('workshopValidation').innerHTML = [
     ['Model calibration workshop','Compare weighted ranking with expert site-priority judgement.'],
     ['Stakeholder validation round','Record disagreement, missing factors and acceptable policy assumptions.'],
     ['Final model lock','Apply approved weights and document changes from baseline model.']
   ].map(([title,body]) => '<div><strong>'+h(title)+'</strong><span>'+h(body)+'</span></div>').join('');
+}
+function renderStakeholderWeightDistribution() {
+  const total = stakeholderWeightGroups.reduce((sum, group) => sum + state.stakeholderGroupWeights[group.key], 0);
+  document.getElementById('stakeholderWeightDistribution').innerHTML =
+    '<div class="distribution-heading"><strong>Stakeholder weighting distribution</strong><span>Total '+h(total)+'%</span></div>' +
+    stakeholderWeightGroups.map(group =>
+      '<label><span>'+h(group.label)+' <strong>'+h(state.stakeholderGroupWeights[group.key])+'%</strong></span><input data-group-weight="'+h(group.key)+'" type="range" min="0" max="100" value="'+h(state.stakeholderGroupWeights[group.key])+'" /></label>'
+    ).join('');
+  document.querySelectorAll('[data-group-weight]').forEach(input => input.oninput = e => {
+    setStakeholderGroupWeight(e.target.dataset.groupWeight, Number(e.target.value));
+    renderFinalWeights();
+  });
+}
+function setStakeholderGroupWeight(changedKey, value) {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  const otherGroups = stakeholderWeightGroups.filter(group => group.key !== changedKey);
+  const remaining = 100 - clamped;
+  const otherTotal = otherGroups.reduce((sum, group) => sum + state.stakeholderGroupWeights[group.key], 0);
+  state.stakeholderGroupWeights[changedKey] = clamped;
+  if (!otherGroups.length) return;
+  let assigned = 0;
+  otherGroups.forEach((group, index) => {
+    const next = index === otherGroups.length - 1
+      ? remaining - assigned
+      : Math.round(remaining * (otherTotal ? state.stakeholderGroupWeights[group.key] / otherTotal : 1 / otherGroups.length));
+    state.stakeholderGroupWeights[group.key] = next;
+    assigned += next;
+  });
+  if (state.modelMode === 'survey') {
+    state.weights = finalResearchWeights();
+    state.researchWeights = state.weights.slice();
+  }
 }
 function renderFilterSummary(visible, total) {
   const active = Object.entries(state.filters).filter(([key,value]) => value !== defaultFilters[key]).map(([key,value]) => key + ': ' + value);
@@ -695,8 +822,8 @@ function init() {
   render();
 }
 function exportSurveyCriteria() {
-  const headers = ['factor_id','dimension','factor_name','survey_question','importance_scale','literature_source','data_indicator','scoring_method'];
-  const rows = selectedSurveyFactors().map(factor => [factor.id, dimensionLabel(factor.dimension), factor.factor_name, surveyQuestion(factor), '1=Not important; 2=Slightly important; 3=Moderately important; 4=Important; 5=Very important', factor.literature_source, factor.data_indicator, factor.scoring_method]);
+  const headers = ['factor_id','dimension','factor_name','survey_question','importance_slider','literature_source','data_indicator','scoring_method'];
+  const rows = selectedSurveyFactors().map(factor => [factor.id, dimensionLabel(factor.dimension), factor.factor_name, surveyQuestion(factor), '0=Not important; 50=Moderately important; 100=Very important', factor.literature_source, factor.data_indicator, factor.scoring_method]);
   downloadCsv('adaptive-reuse-survey-criteria.csv', headers, rows);
 }
 function addStakeholderFactor() {

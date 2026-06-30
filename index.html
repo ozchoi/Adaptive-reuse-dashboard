@@ -59,19 +59,6 @@
       </nav>
 
       <section id="overview" class="tab-panel active">
-        <article class="panel workflow-panel">
-          <h2>Research Workflow</h2>
-          <div class="workflow-steps">
-            <div><strong>1</strong><span>Literature review</span></div>
-            <div><strong>2</strong><span>Critical factors</span></div>
-            <div><strong>3</strong><span>Survey criteria</span></div>
-            <div><strong>4</strong><span>Stakeholder input</span></div>
-            <div><strong>5</strong><span>Final weights</span></div>
-            <div><strong>6</strong><span>Suitability model</span></div>
-            <div><strong>7</strong><span>Scenario analysis</span></div>
-            <div><strong>8</strong><span>Workshop validation</span></div>
-          </div>
-        </article>
         <div id="kpis" class="kpi-grid"></div>
         <div class="grid two">
           <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>
@@ -95,14 +82,14 @@
         <div class="grid two">
           <article class="panel">
             <div class="panel-heading">
-              <h2>Survey Criteria Preparation</h2>
+              <h2>Survey Instrument</h2>
               <button id="exportSurveyCriteria" class="primary-button" type="button">Export survey CSV</button>
             </div>
-            <p class="map-note">Selected literature-derived factors are converted into survey wording with a 1-5 importance scale.</p>
+            <p class="map-note">Rate each selected factor with the slider, then rank the top three most important factors before submitting.</p>
             <div id="surveyCriteriaList" class="criteria-list"></div>
           </article>
           <article class="panel">
-            <h2>Survey Instrument Preview</h2>
+            <h2>Top 3 Factor Ranking</h2>
             <div id="surveyPreview" class="survey-preview"></div>
           </article>
         </div>
@@ -143,6 +130,7 @@
           </article>
           <article class="panel">
             <h2>Stakeholder Group Differences</h2>
+            <div id="stakeholderWeightDistribution" class="stakeholder-weighting"></div>
             <div id="stakeholderDifferences" class="group-diff"></div>
             <h2>Workshop Validation</h2>
             <div id="workshopValidation" class="validation-list"></div>
