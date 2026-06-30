@@ -108,6 +108,10 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .survey-question { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: start; }
 .survey-question span { display: grid; place-items: center; min-height: 32px; border-radius: 7px; background: var(--blue-soft); color: var(--blue); font-weight: 900; }
 .ranked-selects { display: grid; gap: 10px; }
+.reuse-outcome-box { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.reuse-outcome-box h3 { margin: 0; font-size: 15px; }
+.reuse-options { display: grid; gap: 8px; }
+.reuse-options label { display: flex; grid-template-columns: none; align-items: center; gap: 8px; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #f8fafc; color: #334155; font-size: 13px; font-weight: 700; }
 .survey-submit-status { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .survey-submit-status strong { color: var(--ink); font-size: 13px; }
 .survey-submit-status.submitted { border-color: #99f6e4; background: var(--green-soft); }

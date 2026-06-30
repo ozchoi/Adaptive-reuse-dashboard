@@ -113,6 +113,17 @@ const stakeholderWeightGroups = [
   { key: 'community', label: 'Community / NGO' }
 ];
 const stakeholderGroups = [...stakeholderWeightGroups.map(group => group.label), 'Professional consultant'];
+const reuseOutcomeOptions = [
+  'Commercial',
+  'Private rental housing',
+  'Small residential units',
+  'Co-living',
+  'Student housing',
+  'Transitional housing',
+  'Mixed-use residential-commercial',
+  'Serviced apartment / hotel-like use',
+  'Prefer not to convert to residential use'
+];
 const ozpResidentialGroups = [
   { code: 'R(A)', label: 'Residential (Group A)', color: 'rgb(150,18,8)' },
   { code: 'R(B)', label: 'Residential (Group B)', color: 'rgb(189,105,15)' },
@@ -169,7 +180,7 @@ const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 
 let state = { scenario: 'balanced', modelMode: 'baseline', weights: scenarios.balanced.weights.slice(), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveyTopFactors: ['', '', ''], surveySubmitted: false, participantGroup: '', industrialOwnershipType: '', stakeholderGroupWeights: { academics: 25, government: 25, industry: 25, community: 25 } };
+], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, participantGroup: '', industrialOwnershipType: '', stakeholderGroupWeights: { academics: 25, government: 25, industry: 25, community: 25 } };
 let suitabilityMap = null;
 let suitabilityLayer = null;
 let zoneMap = null;
@@ -198,6 +209,7 @@ function surveyQuestion(factor) {
 }
 function surveyRating(factorId) { return state.surveyRatings[factorId] ?? 50; }
 function selectedTopFactorIds() { return state.surveyTopFactors.filter(Boolean); }
+function selectedReuseOutcomes() { return state.preferredReuseOutcomes; }
 function stakeholderGroupLabel(key) { return (stakeholderWeightGroups.find(group => group.key === key) || { label: key }).label; }
 function flattenResponses(groups) { return Object.values(groups).flat(); }
 function mean(values) { return values.reduce((sum, value) => sum + value, 0) / (values.length || 1); }
@@ -417,9 +429,13 @@ function renderSurveyCriteria() {
   const ranked = state.surveyTopFactors.map((factorId, index) =>
     '<label>Rank '+(index + 1)+'<select data-top-factor="'+index+'">'+optionsHtml+'</select></label>'
   ).join('');
+  const reuseOutcomes = reuseOutcomeOptions.map(option =>
+    '<label><input data-reuse-outcome="'+h(option)+'" type="checkbox" '+(state.preferredReuseOutcomes.includes(option) ? 'checked' : '')+' /> '+h(option)+'</label>'
+  ).join('');
   document.getElementById('surveyPreview').innerHTML =
     '<div class="survey-banner"><strong>'+h(selected.length)+'</strong><span>criteria selected for survey</span></div>' +
     '<div class="ranked-selects">'+ranked+'</div>' +
+    '<div class="reuse-outcome-box"><h3>Preferred Reuse Outcome</h3><div class="reuse-options">'+reuseOutcomes+'</div></div>' +
     '<button id="submitSurvey" class="primary-button" type="button">Submit survey</button>' +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>';
   document.querySelectorAll('[data-top-factor]').forEach(select => {
@@ -429,6 +445,14 @@ function renderSurveyCriteria() {
       state.surveySubmitted = false;
       updateSurveySummary();
     };
+  });
+  document.querySelectorAll('[data-reuse-outcome]').forEach(input => input.onchange = e => {
+    const option = e.target.dataset.reuseOutcome;
+    state.preferredReuseOutcomes = e.target.checked
+      ? [...new Set([...state.preferredReuseOutcomes, option])]
+      : state.preferredReuseOutcomes.filter(item => item !== option);
+    state.surveySubmitted = false;
+    updateSurveySummary();
   });
   document.getElementById('submitSurvey').onclick = submitSurvey;
   updateSurveySummary();
@@ -441,6 +465,7 @@ function updateSurveySummary() {
   const topIds = selectedTopFactorIds();
   const duplicateCount = topIds.length - new Set(topIds).size;
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
+  const reuseOutcomes = selectedReuseOutcomes();
   const participantMessage = !state.participantGroup
     ? 'Stakeholder group is required.'
     : state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType
@@ -451,8 +476,8 @@ function updateSurveySummary() {
     return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
   }).filter(Boolean).join('');
   const message = state.surveySubmitted
-    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span>'
-    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span>';
+    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span>'
+    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span>';
   status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (duplicateCount || missingParticipant ? ' has-error' : '');
   status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (duplicateCount ? '<span>Each top-3 rank must use a different factor.</span>' : '') + (rankedNames ? '<ol>'+rankedNames+'</ol>' : '');
 }
