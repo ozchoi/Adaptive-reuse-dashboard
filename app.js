@@ -809,7 +809,8 @@ function init() {
   [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxHeight','maxHeightValue'],['maxStoreys','maxStoreysValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
   document.getElementById('resetFilters').onclick = () => { state.filters = {...defaultFilters}; syncFilterControls(); render(); };
   document.getElementById('exportCsv').onclick = exportCsv;
-  document.getElementById('exportSurveyCriteria').onclick = exportSurveyCriteria;
+  const exportSurveyCriteriaButton = document.getElementById('exportSurveyCriteria');
+  if (exportSurveyCriteriaButton) exportSurveyCriteriaButton.onclick = exportSurveyCriteria;
   document.getElementById('addStakeholderFactor').onclick = addStakeholderFactor;
   document.getElementById('applyFinalWeights').onclick = () => {
     state.modelMode = 'survey';
