@@ -112,7 +112,12 @@ const stakeholderWeightGroups = [
   { key: 'industry', label: 'Industrial Unit Owner' },
   { key: 'community', label: 'Community / NGO' }
 ];
-const stakeholderGroups = [...stakeholderWeightGroups.map(group => group.label), 'Professional consultant'];
+const surveyStakeholderGroups = [
+  ...stakeholderWeightGroups.map(group => group.label),
+  'architect/ Planner/ related expertise',
+  'Developer'
+];
+const stakeholderGroups = [...surveyStakeholderGroups, 'Professional consultant'];
 const reuseOutcomeOptions = [
   'Commercial',
   'Private rental housing',
@@ -177,15 +182,14 @@ const mtrStations = [
   { name: 'Wong Chuk Hang Station', lat: 22.2481, lng: 114.1680 }
 ];
 const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxHeight: 220, maxStoreys: 60, maxMtr: 1200 };
-let state = { scenario: 'balanced', modelMode: 'baseline', weights: scenarios.balanced.weights.slice(), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, stakeholderFactors: [
+const defaultMapLayers = { buildings: true, catchment: true, facilities: true, mtr: true, ozp: true };
+let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
 ], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, participantGroup: '', industrialOwnershipType: '', stakeholderGroupWeights: { academics: 25, government: 25, industry: 25, community: 25 } };
 let suitabilityMap = null;
-let suitabilityLayer = null;
-let zoneMap = null;
-let zoneLayer = null;
-let zoneOzpOverlay = null;
+let mapLayerGroups = null;
+let mainOzpOverlay = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
 const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706'];
@@ -360,7 +364,6 @@ function render() {
   if (rows.length) rows.slice(0,8).forEach(b => bar(top, b.id + ' ' + b.name, b.score, 100, categoryColor[b.category]));
   else empty(top, 'No buildings match the current filters.');
   renderMap(rows, selected);
-  renderZoneMap(rows, selected);
   renderProfile(selected);
   renderTable(rows);
   renderWeights(selected);
@@ -396,7 +399,7 @@ function renderSurveyCriteria() {
     ? '<label>Ownership type of industrial unit<select id="industrialOwnershipType"><option value="">Select ownership type</option><option>Sole Ownership of Entire Building</option><option>Multi-ownership Buildings</option></select></label>'
     : '';
   document.getElementById('surveyCriteriaList').innerHTML =
-    '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+stakeholderWeightGroups.map(group => '<option>'+h(group.label)+'</option>').join('')+'</select></label>'+ownershipQuestion+'</div>' +
+    '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+'</div>' +
     selected.map(factor =>
     '<div class="criteria-card survey-slider-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p>'+h(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
   ).join('');
@@ -581,50 +584,71 @@ function renderMap(rows, selected) {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(suitabilityMap);
-      suitabilityLayer = L.layerGroup().addTo(suitabilityMap);
+      suitabilityMap.createPane('ozpPane');
+      suitabilityMap.getPane('ozpPane').style.zIndex = 350;
+      suitabilityMap.getPane('ozpPane').style.pointerEvents = 'none';
+      mapLayerGroups = {
+        catchment: L.layerGroup().addTo(suitabilityMap),
+        buildings: L.layerGroup().addTo(suitabilityMap),
+        facilities: L.layerGroup().addTo(suitabilityMap),
+        mtr: L.layerGroup().addTo(suitabilityMap)
+      };
+      suitabilityMap.on('moveend zoomend resize', updateMainOzpOverlay);
     }
-    suitabilityLayer.clearLayers();
-    L.circle([selected.lat, selected.lng], {
-      radius: 500,
-      color: '#2563eb',
-      weight: 2,
-      fillColor: '#2563eb',
-      fillOpacity: 0.08
-    }).bindPopup('<strong>500 m community catchment</strong>'+h(selected.name)+'<br>'+h(catchment.length)+' amenities and stations identified').addTo(suitabilityLayer);
-    rows.forEach(b => {
-      const marker = L.circleMarker([b.lat, b.lng], {
-        radius: b.id === selected.id ? 11 : Math.max(7, Math.min(14, b.floorArea / 1800)),
-        color: '#ffffff',
-        weight: b.id === selected.id ? 3 : 2,
-        fillColor: categoryColor[b.category],
-        fillOpacity: 0.88
-      }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Score: '+h(b.score)+'<br>'+h(b.category)+' suitability');
-      marker.on('click', () => { state.selected = b.id; render(); });
-      marker.addTo(suitabilityLayer);
-      if (b.id === selected.id) marker.openPopup();
-    });
-    catchment.filter(item => item.type !== 'MTR').forEach(f => {
-      L.circleMarker([f.lat, f.lng], {
-        radius: 6,
-        color: '#ffffff',
+    renderMapLayerControls(el);
+    Object.values(mapLayerGroups).forEach(group => group.clearLayers());
+    if (state.mapLayers.catchment) {
+      L.circle([selected.lat, selected.lng], {
+        radius: 500,
+        color: '#2563eb',
         weight: 2,
-        fillColor: facilityColor[f.type],
-        fillOpacity: 0.95
-      }).bindPopup('<strong>'+h(f.name)+'</strong>'+h(f.type)+'<br>'+h(f.distance)+' m from selected building').addTo(suitabilityLayer);
-    });
-    catchment.filter(item => item.type === 'MTR').forEach(station => {
-      L.circleMarker([station.lat, station.lng], {
-        radius: 7,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: facilityColor.MTR,
-        fillOpacity: 0.95
-      }).bindPopup('<strong>'+h(station.name)+'</strong>MTR station<br>'+h(station.distance)+' m from selected building').addTo(suitabilityLayer);
-    });
+        fillColor: '#2563eb',
+        fillOpacity: 0.08
+      }).bindPopup('<strong>500 m community catchment</strong>'+h(selected.name)+'<br>'+h(catchment.length)+' amenities and stations identified').addTo(mapLayerGroups.catchment);
+    }
+    if (state.mapLayers.buildings) {
+      rows.forEach(b => {
+        const marker = L.circleMarker([b.lat, b.lng], {
+          radius: b.id === selected.id ? 11 : Math.max(7, Math.min(14, b.floorArea / 1800)),
+          color: '#ffffff',
+          weight: b.id === selected.id ? 3 : 2,
+          fillColor: categoryColor[b.category],
+          fillOpacity: 0.88
+        }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Score: '+h(b.score)+'<br>'+h(b.category)+' suitability');
+        marker.on('click', () => { state.selected = b.id; render(); });
+        marker.addTo(mapLayerGroups.buildings);
+        if (b.id === selected.id) marker.openPopup();
+      });
+    }
+    if (state.mapLayers.facilities) {
+      catchment.filter(item => item.type !== 'MTR').forEach(f => {
+        L.circleMarker([f.lat, f.lng], {
+          radius: 6,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: facilityColor[f.type],
+          fillOpacity: 0.95
+        }).bindPopup('<strong>'+h(f.name)+'</strong>'+h(f.type)+'<br>'+h(f.distance)+' m from selected building').addTo(mapLayerGroups.facilities);
+      });
+    }
+    if (state.mapLayers.mtr) {
+      catchment.filter(item => item.type === 'MTR').forEach(station => {
+        L.circleMarker([station.lat, station.lng], {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: facilityColor.MTR,
+          fillOpacity: 0.95
+        }).bindPopup('<strong>'+h(station.name)+'</strong>MTR station<br>'+h(station.distance)+' m from selected building').addTo(mapLayerGroups.mtr);
+      });
+    }
     suitabilityMap.setView([selected.lat, selected.lng], 15);
-    setTimeout(() => suitabilityMap.invalidateSize(), 0);
+    setTimeout(() => {
+      suitabilityMap.invalidateSize();
+      updateMainOzpOverlay();
+    }, 0);
     if (!document.querySelector('#mapPanel .map-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span></div>');
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>OZP residential</span></div>');
     }
     if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
     return;
@@ -646,52 +670,28 @@ function renderMap(rows, selected) {
   if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
   el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'</div>');
 }
-function renderZoneMap(rows, selected) {
-  const el = document.getElementById('zoneMapPanel');
-  if (!el) return;
-  if (window.L) {
-    el.classList.remove('fallback');
-    if (!zoneMap) {
-      zoneMap = L.map(el, { scrollWheelZoom: false }).setView([22.326, 114.17], 11);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(zoneMap);
-      zoneMap.createPane('ozpPane');
-      zoneMap.getPane('ozpPane').style.zIndex = 350;
-      zoneMap.getPane('ozpPane').style.pointerEvents = 'none';
-      zoneLayer = L.layerGroup().addTo(zoneMap);
-      zoneMap.on('moveend zoomend resize', updateOzpResidentialOverlay);
-    }
-    zoneLayer.clearLayers();
-    rows.forEach(b => {
-      L.circleMarker([b.lat, b.lng], {
-        radius: b.id === selected.id ? 7 : 4,
-        color: '#111827',
-        weight: b.id === selected.id ? 2 : 1,
-        fillColor: categoryColor[b.category],
-        fillOpacity: 0.92
-      }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Current vacancy: '+h(b.vacancy)+'%').addTo(zoneLayer);
-    });
-    setTimeout(() => {
-      zoneMap.invalidateSize();
-      fitZoneMap();
-      updateOzpResidentialOverlay();
-    }, 0);
-    if (!document.querySelector('#zoneMapPanel .zone-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend zone-legend">'+ozpResidentialGroups.map(z => '<span><i style="background:'+z.color+'"></i>'+h(z.code)+'</span>').join('')+'<span class="source-text">Town Planning Board OZP</span></div>');
-    }
-    return;
+function renderMapLayerControls(el) {
+  if (!document.querySelector('#mapPanel .layer-control')) {
+    const controls = [
+      ['buildings', 'Buildings'],
+      ['catchment', '500 m catchment'],
+      ['facilities', 'Community facilities'],
+      ['mtr', 'MTR stations'],
+      ['ozp', 'OZP residential zones']
+    ];
+    el.insertAdjacentHTML('beforeend', '<div class="layer-control"><strong>Map layers</strong>'+controls.map(([key,label]) => '<label><input data-map-layer="'+h(key)+'" type="checkbox" '+(state.mapLayers[key] ? 'checked' : '')+' />'+h(label)+'</label>').join('')+'</div>');
   }
-  el.classList.add('fallback');
-  el.innerHTML = '<div class="empty-state">Residential zone map requires the Leaflet map library.</div>';
+  document.querySelectorAll('[data-map-layer]').forEach(input => {
+    input.checked = !!state.mapLayers[input.dataset.mapLayer];
+    input.onchange = e => {
+      state.mapLayers[e.target.dataset.mapLayer] = e.target.checked;
+      render();
+    };
+  });
 }
-function fitZoneMap() {
-  if (zoneMap) zoneMap.fitBounds([[22.22,113.95],[22.46,114.25]], { padding: [24, 24] });
-}
-function ozpExportUrl() {
-  const bounds = zoneMap.getBounds();
-  const size = zoneMap.getSize();
+function ozpExportUrl(map) {
+  const bounds = map.getBounds();
+  const size = map.getSize();
   const params = new URLSearchParams({
     bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(','),
     bboxSR: '4326',
@@ -705,24 +705,31 @@ function ozpExportUrl() {
   });
   return ozpServiceUrl + '?' + params.toString();
 }
-function updateOzpResidentialOverlay() {
-  if (!zoneMap) return;
-  const bounds = zoneMap.getBounds();
-  const image = L.imageOverlay(ozpExportUrl(), bounds, {
+function updateMainOzpOverlay() {
+  if (!suitabilityMap || !window.L) return;
+  if (!state.mapLayers.ozp) {
+    if (mainOzpOverlay) {
+      suitabilityMap.removeLayer(mainOzpOverlay);
+      mainOzpOverlay = null;
+    }
+    return;
+  }
+  const bounds = suitabilityMap.getBounds();
+  const image = L.imageOverlay(ozpExportUrl(suitabilityMap), bounds, {
     pane: 'ozpPane',
-    opacity: 0.72,
+    opacity: 0.58,
     attribution: 'Planning Data from Town Planning Board'
   });
   image.on('load', () => {
-    if (zoneOzpOverlay) zoneMap.removeLayer(zoneOzpOverlay);
-    zoneOzpOverlay = image;
+    if (mainOzpOverlay) suitabilityMap.removeLayer(mainOzpOverlay);
+    mainOzpOverlay = image;
   });
   image.on('error', () => {
-    if (!document.querySelector('#zoneMapPanel .ozp-warning')) {
-      document.getElementById('zoneMapPanel').insertAdjacentHTML('beforeend', '<div class="empty-state ozp-warning">Official OZP residential zoning layer is temporarily unavailable.</div>');
+    if (!document.querySelector('#mapPanel .ozp-warning')) {
+      document.getElementById('mapPanel').insertAdjacentHTML('beforeend', '<div class="empty-state ozp-warning">Official OZP residential zoning layer is temporarily unavailable.</div>');
     }
   });
-  image.addTo(zoneMap);
+  image.addTo(suitabilityMap);
 }
 function renderProfile(b) {
   const catchment = catchmentFor(b);
@@ -738,15 +745,19 @@ function renderProfile(b) {
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
 }
 function renderTable(rows) {
+  const factorColumns = activeDimensions().map(([key,label]) => [key, label]);
   const columns = [
-    ['id','ID'], ['name','Building'], ['district','District'], ['year','Year'], ['age','Age'], ['zoning','Zoning'], ['ownership','Ownership'], ['vacancy','Vacancy'], ['mtr','MTR'], ['housingDemand','Housing'], ['planningZoning','Planning'], ['landLease','Lease'], ['ownershipGovernance','Governance'], ['regulationSafety','Safety'], ['buildingAdaptability','Adaptability'], ['locationTransport','Transport'], ['districtCapacity','Capacity'], ['neighbourhoodCompatibility','Neighbourhood'], ['economicFinancial','Economic'], ['policyCertainty','Policy'], ['score','Overall'], ['category','Category']
+    ['id','ID'], ['name','Building'], ['district','District'], ['year','Year'], ['age','Age'], ['zoning','Zoning'], ['ownership','Ownership'], ['vacancy','Vacancy'], ['mtr','MTR'], ...factorColumns, ['score','Overall'], ['category','Category']
   ];
   const ordered = sortedRows(rows);
-  document.getElementById('tableMeta').textContent = ordered.length + ' ranked records';
+  document.getElementById('tableMeta').textContent = ordered.length + ' ranked records | ' + activeDimensions().length + '-dimension critical factors model';
   document.getElementById('comparisonTable').innerHTML =
     '<thead><tr>'+columns.map(([key,label]) => '<th><button data-sort="'+key+'">'+h(label)+(state.sort.key === key ? (state.sort.dir === 'asc' ? ' ^' : ' v') : '')+'</button></th>').join('')+'</tr></thead><tbody>'+
     ordered.map(b => {
-      const cells = [b.id,b.name,b.district,b.year,b.age,b.zoning,b.ownership,b.vacancy+'%',b.mtr+' m',b.housingDemand,b.planningZoning,b.landLease,b.ownershipGovernance,b.regulationSafety,b.buildingAdaptability,b.locationTransport,b.districtCapacity,b.neighbourhoodCompatibility,b.economicFinancial,b.policyCertainty,b.score].map(v => '<td>'+h(v)+'</td>');
+      const cells = columns.slice(0, -1).map(([key]) => {
+        const value = key === 'vacancy' ? b.vacancy + '%' : key === 'mtr' ? b.mtr + ' m' : b[key];
+        return '<td>'+h(value)+'</td>';
+      });
       cells.push('<td><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+'</span></td>');
       return '<tr data-id="'+h(b.id)+'" class="'+(b.id === state.selected ? 'selected-row' : '')+'">'+cells.join('')+'</tr>';
     }).join('')+'</tbody>';
@@ -807,6 +818,8 @@ function syncFilterControls() {
   document.getElementById('maxMtrValue').textContent = state.filters.maxMtr;
 }
 function init() {
+  state.weights = finalResearchWeights();
+  state.researchWeights = state.weights.slice();
   options('district', buildings.map(b=>b.district));
   options('zoning', buildings.map(b=>b.zoning));
   options('ownership', buildings.map(b=>b.ownership));
@@ -816,17 +829,15 @@ function init() {
   document.getElementById('stakeholderDimension').innerHTML = researchDimensions.map(([key,label]) => '<option value="'+h(key)+'">'+h(label)+'</option>').join('');
   renderCompareControls();
   document.getElementById('scenarioButtons').innerHTML = Object.entries(scenarios).map(([k,s]) => '<button data-scenario="'+k+'">'+h(s.label)+'<small>'+h(s.summary)+'</small></button>').join('');
-  document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => { state.scenario = btn.dataset.scenario; state.modelMode = 'baseline'; state.weights = scenarios[state.scenario].weights.slice(); render(); });
+  document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => { state.scenario = btn.dataset.scenario; render(); });
   document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
     document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.tab).classList.add('active');
     if (tab.dataset.tab === 'map') {
-      if (suitabilityMap) setTimeout(() => suitabilityMap.invalidateSize(), 0);
-      if (zoneMap) setTimeout(() => {
-        zoneMap.invalidateSize();
-        fitZoneMap();
-        updateOzpResidentialOverlay();
+      if (suitabilityMap) setTimeout(() => {
+        suitabilityMap.invalidateSize();
+        updateMainOzpOverlay();
       }, 0);
     }
   });
@@ -867,9 +878,10 @@ function addStakeholderFactor() {
   renderResearchWorkflow();
 }
 function exportCsv() {
-  const factorHeaders = dimensions.map(([key]) => key);
+  const modelDimensions = activeDimensions();
+  const factorHeaders = modelDimensions.map(([key]) => key);
   const headers = ['building_id','building_name','district','address','existing_zoning','ownership_type','distance_to_mtr_m',...factorHeaders,'overall_suitability_score','suitability_category','main_constraints','main_opportunities'];
-  const rows = filtered().map(b => [b.id,b.name,b.district,b.address,b.zoning,b.ownership,b.mtr,...dimensions.map(([key]) => b[key]),b.score,b.category,b.constraints,b.opportunities]);
+  const rows = filtered().map(b => [b.id,b.name,b.district,b.address,b.zoning,b.ownership,b.mtr,...modelDimensions.map(([key]) => b[key]),b.score,b.category,b.constraints,b.opportunities]);
   downloadCsv('adaptive-reuse-ranked-buildings.csv', headers, rows);
 }
 init();

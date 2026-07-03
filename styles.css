@@ -77,6 +77,11 @@ input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); 
 .map-legend span { display: inline-flex; align-items: center; gap: 6px; color: #475569; }
 .map-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .map-legend .radius-key { background: rgba(37, 99, 235, 0.12); border: 2px solid #2563eb; }
+.map-legend .ozp-key { background: rgba(150, 18, 8, 0.45); border-radius: 2px; border: 1px solid #961208; }
+.layer-control { position: absolute; z-index: 860; top: 14px; right: 14px; display: grid; gap: 7px; width: min(240px, calc(100% - 28px)); padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,0.94); backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
+.layer-control strong { font-size: 12px; text-transform: uppercase; color: #334155; }
+.layer-control label { display: flex; grid-template-columns: none; align-items: center; gap: 8px; margin: 0; color: #475569; font-size: 12px; font-weight: 800; }
+.layer-control input { flex: 0 0 auto; }
 .badge { display: inline-flex; border-radius: 999px; padding: 4px 9px; color: white; font-size: 12px; font-weight: 800; }
 dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 dt { color: var(--muted); font-size: 12px; }
