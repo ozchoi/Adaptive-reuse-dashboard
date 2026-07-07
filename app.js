@@ -213,7 +213,7 @@ const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 } };
+], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.' };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -232,6 +232,125 @@ function explainTerms(value) {
     const key = match.toLowerCase() === 'initial' ? 'initial' : match.toUpperCase();
     return '<span class="term-tip" tabindex="0" title="'+h(termExplanations[key])+'">'+h(match)+'</span>';
   });
+}
+const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
+function supabaseReady() {
+  return !!(supabaseConfig.url && supabaseConfig.anonKey && !String(supabaseConfig.url).includes('YOUR_') && !String(supabaseConfig.anonKey).includes('YOUR_'));
+}
+async function supabaseRequest(table, options = {}) {
+  if (!supabaseReady()) throw new Error('Supabase is not configured.');
+  const url = String(supabaseConfig.url).replace(/\/$/, '') + '/rest/v1/' + table + (options.query || '');
+  const headers = {
+    apikey: supabaseConfig.anonKey,
+    Authorization: 'Bearer ' + supabaseConfig.anonKey,
+    'Content-Type': 'application/json',
+    Prefer: options.prefer || 'return=representation'
+  };
+  const response = await fetch(url, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || 'Supabase request failed with status ' + response.status);
+  }
+  return response.status === 204 ? [] : response.json();
+}
+function stakeholderGroupKey(value) {
+  const clean = String(value || '').trim();
+  const match = stakeholderWeightGroups.find(group => group.key === clean || group.label === clean);
+  return match ? match.key : clean;
+}
+function emptySurveyResponseSet() {
+  return Object.fromEntries(researchDimensions.map(([key]) => [
+    key,
+    Object.fromEntries(stakeholderWeightGroups.map(group => [group.key, []]))
+  ]));
+}
+function shouldUseSubmissionData() { return state.surveySubmissionsLoaded || state.surveySubmissions.length > 0; }
+function currentSurveyResponses() {
+  if (!shouldUseSubmissionData()) return surveyResponses;
+  const responseSet = emptySurveyResponseSet();
+  state.surveySubmissions.forEach(submission => {
+    const groupKey = stakeholderGroupKey(submission.stakeholder_group_key || submission.stakeholder_group);
+    if (!responseSet.feasibility[groupKey]) return;
+    const ratings = submission.ratings || {};
+    researchDimensions.forEach(([dimensionKey]) => {
+      const values = criticalFactors
+        .filter(factor => factor.dimension === dimensionKey && Number.isFinite(Number(ratings[factor.id])))
+        .map(factor => Number(ratings[factor.id]));
+      if (values.length) responseSet[dimensionKey][groupKey].push(mean(values) / 20);
+    });
+  });
+  return responseSet;
+}
+function surveyValuesForFactor(factorId, groupKey = state.surveyResultGroup) {
+  if (!shouldUseSubmissionData()) return [];
+  return state.surveySubmissions
+    .filter(submission => groupKey === 'All' || stakeholderGroupKey(submission.stakeholder_group_key || submission.stakeholder_group) === groupKey)
+    .map(submission => Number((submission.ratings || {})[factorId]))
+    .filter(Number.isFinite);
+}
+function surveySubmissionPayload() {
+  const ratings = Object.fromEntries(selectedSurveyFactors().map(factor => [factor.id, surveyRating(factor.id)]));
+  const topFactorNames = state.surveyTopFactors.map(id => (criticalFactors.find(factor => factor.id === id) || {}).factor_name).filter(Boolean);
+  return {
+    stakeholder_group: state.participantGroup,
+    stakeholder_group_key: stakeholderGroupKey(state.participantGroup),
+    industrial_ownership_type: state.industrialOwnershipType || null,
+    ratings,
+    top_factor_ids: state.surveyTopFactors.slice(),
+    top_factor_names: topFactorNames,
+    preferred_reuse_outcomes: state.preferredReuseOutcomes.slice()
+  };
+}
+async function saveSurveySubmission(payload) {
+  if (!supabaseReady()) {
+    state.surveySubmissions.push({...payload, id: 'local-' + Date.now(), created_at: new Date().toISOString()});
+    state.surveySubmissionsLoaded = true;
+    state.databaseStatus = 'Supabase is not configured. This submission is stored locally in this browser session only.';
+    return { remote: false };
+  }
+  const rows = await supabaseRequest('survey_submissions', { method: 'POST', body: payload });
+  state.surveySubmissions.unshift(rows[0] || payload);
+  state.surveySubmissionsLoaded = true;
+  state.databaseStatus = 'Connected to Supabase. Survey data is stored in the database.';
+  return { remote: true };
+}
+async function saveStakeholderSuggestedFactor(payload) {
+  if (!supabaseReady()) {
+    state.stakeholderFactors.unshift(payload);
+    state.databaseStatus = 'Supabase is not configured. Suggested factors are stored locally in this browser session only.';
+    return { remote: false };
+  }
+  const rows = await supabaseRequest('stakeholder_suggested_factors', { method: 'POST', body: payload });
+  state.stakeholderFactors.unshift(rows[0] || payload);
+  state.databaseStatus = 'Connected to Supabase. Suggested factor stored in the database.';
+  return { remote: true };
+}
+async function loadSupabaseData() {
+  if (!supabaseReady()) {
+    state.databaseStatus = 'Using local pilot data until Supabase Project URL and anon key are added in supabase-config.js.';
+    render();
+    return;
+  }
+  try {
+    const [submissions, suggestedFactors] = await Promise.all([
+      supabaseRequest('survey_submissions', { query: '?select=*&order=created_at.desc' }),
+      supabaseRequest('stakeholder_suggested_factors', { query: '?select=*&order=created_at.desc' })
+    ]);
+    state.surveySubmissions = submissions || [];
+    state.surveySubmissionsLoaded = true;
+    if (Array.isArray(suggestedFactors) && suggestedFactors.length) state.stakeholderFactors = suggestedFactors;
+    state.databaseStatus = 'Connected to Supabase. Loaded ' + state.surveySubmissions.length + ' survey submission' + (state.surveySubmissions.length === 1 ? '' : 's') + '.';
+    state.weights = finalResearchWeights();
+    state.researchWeights = state.weights.slice();
+  } catch (error) {
+    console.error(error);
+    state.databaseStatus = 'Supabase connection failed. Check config, table names and RLS policies.';
+  }
+  render();
 }
 function csvEscape(value) { return '"'+String(value).replaceAll('"','""')+'"'; }
 function downloadCsv(filename, headers, rows) {
@@ -276,32 +395,44 @@ function stdDev(values) {
   return Math.sqrt(mean(values.map(value => (value - avg) ** 2)));
 }
 function weightStats() {
+  const responseData = currentSurveyResponses();
   const rows = researchDimensions.map(([key,label]) => {
-    const groups = surveyResponses[key];
+    const groups = responseData[key];
     const values = flattenResponses(groups);
     const fallbackMean = mean(values);
-    const groupMeans = Object.fromEntries(stakeholderWeightGroups.map(group => [group.key, groups[group.key] ? mean(groups[group.key]) : fallbackMean]));
+    const groupMeans = Object.fromEntries(stakeholderWeightGroups.map(group => [group.key, groups[group.key]?.length ? mean(groups[group.key]) : fallbackMean]));
     const weightedMean = stakeholderWeightGroups.reduce((sum, group) => sum + groupMeans[group.key] * state.stakeholderGroupWeights[group.key] / 100, 0);
-    return { key, label, mean: weightedMean, median: median(values), std: stdDev(values), groupMeans };
+    return { key, label, mean: weightedMean, median: values.length ? median(values) : 0, std: values.length ? stdDev(values) : 0, groupMeans };
   });
   const total = rows.reduce((sum, row) => sum + row.mean, 0) || 1;
   return rows.map(row => ({...row, finalWeight: row.mean / total * 100}));
 }
-function finalResearchWeights() { return weightStats().map(row => Math.max(1, Math.round(row.finalWeight))); }
+function hasSurveyResponseData() {
+  return researchDimensions.some(([key]) => surveyValuesForDimension(key, 'All').length > 0);
+}
+function finalResearchWeights() {
+  if (!hasSurveyResponseData()) return researchDimensions.map(() => 1);
+  return weightStats().map(row => Math.max(1, Math.round(row.finalWeight)));
+}
 function scenarioWeights(key) { return key === 'balanced' ? finalResearchWeights() : (scenarios[key] || scenarios.balanced).weights.slice(); }
 function selectedSurveyFactors() { return criticalFactors.filter(factor => factor.include_in_survey); }
 function surveyGroupResponseCount(groupKey) {
+  if (shouldUseSubmissionData()) {
+    return state.surveySubmissions.filter(submission => stakeholderGroupKey(submission.stakeholder_group_key || submission.stakeholder_group) === groupKey).length;
+  }
   const firstDimension = researchDimensions[0][0];
-  return surveyResponses[firstDimension][groupKey]?.length || 0;
+  return currentSurveyResponses()[firstDimension][groupKey]?.length || 0;
 }
 function surveyRespondentTotal(groupKey = state.surveyResultGroup) {
   return stakeholderWeightGroups.reduce((sum, group) => sum + (groupKey === 'All' || group.key === groupKey ? surveyGroupResponseCount(group.key) : 0), 0);
 }
 function surveyValuesForDimension(dimensionKey, groupKey = state.surveyResultGroup) {
-  const groups = surveyResponses[dimensionKey] || {};
+  const groups = currentSurveyResponses()[dimensionKey] || {};
   return stakeholderWeightGroups.flatMap(group => groupKey === 'All' || group.key === groupKey ? (groups[group.key] || []) : []);
 }
 function factorSurveyScore(factor, groupKey = state.surveyResultGroup) {
+  const factorValues = surveyValuesForFactor(factor.id, groupKey);
+  if (factorValues.length) return Math.round(mean(factorValues));
   const values = surveyValuesForDimension(factor.dimension, groupKey);
   if (!values.length) return null;
   const base = mean(values) / 5 * 100;
@@ -316,7 +447,7 @@ function surveyResultRows(groupKey = state.surveyResultGroup) {
     return {
       ...factor,
       score: scoreValue,
-      responseCount: surveyValuesForDimension(factor.dimension, groupKey).length
+      responseCount: shouldUseSubmissionData() ? surveyValuesForFactor(factor.id, groupKey).length : surveyValuesForDimension(factor.dimension, groupKey).length
     };
   }).sort((a,b) => (b.score ?? -1) - (a.score ?? -1) || a.factor_name.localeCompare(b.factor_name));
 }
@@ -367,7 +498,11 @@ function landLeaseScore(building) {
   const leaseBase = building.zoning.includes('Residential') ? 86 : building.zoning.includes('Other Specified Uses') ? 64 : 46;
   return weightedAverage([[leaseBase, 0.4], [building.regulatory, 0.25], [building.economic, 0.2], [ownershipScore(building), 0.15]]);
 }
-function normalisedWeights(weights) { const total = weights.reduce((a,b)=>a+b,0) || 1; return weights.map(w => w / total * 100); }
+function normalisedWeights(weights) {
+  const total = weights.reduce((a,b)=>a+b,0);
+  if (!total) return weights.map(() => 100 / (weights.length || 1));
+  return weights.map(w => w / total * 100);
+}
 function score(building, weights = state.weights, modelMode = state.modelMode) {
   const modelDimensions = modelMode === 'survey' ? researchDimensions : dimensions;
   const nw = normalisedWeights(weights);
@@ -625,14 +760,14 @@ function updateSurveySummary() {
     return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
   }).filter(Boolean).join('');
   const message = state.surveySubmitted
-    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
-    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span>';
+    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>'+h(state.databaseStatus)+'</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
+    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span><span>'+h(state.databaseStatus)+'</span>';
   status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (duplicateCount || missingParticipant ? ' has-error' : '');
   status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (duplicateCount ? '<span>Each top-3 rank must use a different factor.</span>' : '') + (rankedNames ? '<ol>'+rankedNames+'</ol>' : '');
   const seeResultsButton = document.getElementById('seeSurveyResults');
   if (seeResultsButton) seeResultsButton.onclick = () => activateTab('survey-results');
 }
-function submitSurvey() {
+async function submitSurvey() {
   const topIds = selectedTopFactorIds();
   const status = document.getElementById('surveySubmitStatus');
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
@@ -645,11 +780,32 @@ function submitSurvey() {
   selectedSurveyFactors().forEach(factor => {
     if (state.surveyRatings[factor.id] === undefined) state.surveyRatings[factor.id] = surveyRating(factor.id);
   });
-  state.surveySubmitted = true;
-  state.surveyResultsUnlocked = true;
-  updateSurveyResultAccess();
-  renderSurveyResults();
-  updateSurveySummary();
+  const submitButton = document.getElementById('submitSurvey');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = 'Saving...';
+  }
+  try {
+    await saveSurveySubmission(surveySubmissionPayload());
+    state.surveySubmitted = true;
+    state.surveyResultsUnlocked = true;
+    state.weights = finalResearchWeights();
+    state.researchWeights = state.weights.slice();
+    updateSurveyResultAccess();
+    renderSurveyResults();
+    updateSurveySummary();
+  } catch (error) {
+    console.error(error);
+    state.surveySubmitted = false;
+    state.databaseStatus = 'Survey could not be saved to Supabase. Check the browser console and database policies.';
+    updateSurveySummary();
+    if (status) status.insertAdjacentHTML('beforeend', '<span>Save failed: '+h(error.message || error)+'</span>');
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Submit survey';
+    }
+  }
 }
 function renderStakeholderFactors() {
   const factors = state.stakeholderFactors;
@@ -675,7 +831,8 @@ function renderSurveyResults() {
   document.getElementById('surveyResultKpis').innerHTML = [
     ['Survey responses', respondentTotal],
     ['Factors scored', scoredRows.length + ' of ' + rows.length],
-    ['Average factor score', scoredRows.length ? averageScore + '/100' : 'No data']
+    ['Average factor score', scoredRows.length ? averageScore + '/100' : 'No data'],
+    ['Data source', shouldUseSubmissionData() ? 'Supabase submissions' : 'Local pilot data']
   ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   document.getElementById('surveyResultKpis').insertAdjacentHTML('beforeend', renderStakeholderDistributionCard(filter, true));
   const factorChart = document.getElementById('surveyFactorChart');
@@ -1079,25 +1236,44 @@ function init() {
   syncFilterControls();
   updateSurveyResultAccess();
   render();
+  loadSupabaseData();
 }
 function exportSurveyCriteria() {
   const headers = ['factor_id','dimension','factor_name','factor_explanation','survey_question','importance_slider','literature_source','data_indicator','scoring_method'];
   const rows = selectedSurveyFactors().map(factor => [factor.id, dimensionLabel(factor.dimension), factor.factor_name, surveyExplanation(factor), surveyQuestion(factor), '0=Not important; 50=Moderately important; 100=Very important', factor.literature_source, factor.data_indicator, factor.scoring_method]);
   downloadCsv('adaptive-reuse-survey-criteria.csv', headers, rows);
 }
-function addStakeholderFactor() {
+async function addStakeholderFactor() {
   const name = document.getElementById('stakeholderFactorName').value.trim();
   if (!name) return;
-  state.stakeholderFactors.push({
+  const payload = {
     factor_name: name,
     suggested_by: document.getElementById('stakeholderSuggestedBy').value.trim() || 'Unspecified',
     stakeholder_group: document.getElementById('stakeholderGroup').value,
     related_dimension: document.getElementById('stakeholderDimension').value,
     comment: document.getElementById('stakeholderComment').value.trim() || 'No comment provided.',
     include_in_final_model: true
-  });
-  ['stakeholderFactorName','stakeholderSuggestedBy','stakeholderComment'].forEach(id => document.getElementById(id).value = '');
-  renderResearchWorkflow();
+  };
+  const button = document.getElementById('addStakeholderFactor');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Saving...';
+  }
+  try {
+    await saveStakeholderSuggestedFactor(payload);
+    ['stakeholderFactorName','stakeholderSuggestedBy','stakeholderComment'].forEach(id => document.getElementById(id).value = '');
+    renderResearchWorkflow();
+  } catch (error) {
+    console.error(error);
+    state.databaseStatus = 'Suggested factor could not be saved to Supabase. Check config and RLS policies.';
+    renderResearchWorkflow();
+    window.alert('Save failed: ' + (error.message || error));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Add suggested factor';
+    }
+  }
 }
 function exportCsv() {
   const modelDimensions = activeDimensions();

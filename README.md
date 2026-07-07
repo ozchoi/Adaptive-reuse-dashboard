@@ -8,6 +8,17 @@ The scoring model now follows the refined 11-factor framework from the literatur
 
 Open `index.html` directly in a browser, or serve this folder with any static server.
 
+## Supabase survey storage
+
+The survey and stakeholder suggested-factor forms can store responses in Supabase.
+
+1. Create a Supabase project.
+2. Open the Supabase SQL editor and run `supabase-schema.sql`.
+3. In `supabase-config.js`, replace `YOUR_SUPABASE_PROJECT_URL` and `YOUR_SUPABASE_ANON_KEY` with the project's API settings.
+4. Serve or deploy the dashboard. The app will load `survey_submissions` and `stakeholder_suggested_factors` on startup, and new survey submissions will update the Survey Result Summary and Final Weights analysis.
+
+The included Row Level Security policies allow anonymous public inserts and reads for this research dashboard. Tighten the `select` policies if results should only be visible to authenticated users or administrators.
+
 ## Features
 
 - GIS-style map using sample coordinates
