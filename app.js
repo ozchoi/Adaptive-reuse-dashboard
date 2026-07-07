@@ -96,6 +96,32 @@ const criticalFactors = [
   scoring_method: row[5],
   include_in_survey: row[6]
 }));
+const surveyFactorExplanations = {
+  'Conversion readiness': 'Conversion readiness refers to how easily an industrial building can be converted into residential use in its existing condition. This includes whether the building has suitable structure, vacancy, ownership conditions, access, services, and approval pathway to support conversion without excessive delay, cost, or technical difficulty.',
+  'Ownership and implementation capacity': 'This factor considers whether the building ownership structure allows decisions to be made and implemented effectively. A single owner or coordinated management body may make adaptive reuse easier, while fragmented ownership can create delays, disputes, or difficulty reaching consensus.',
+  'Vacancy and decanting potential': 'This factor refers to whether enough space in the building is vacant or can be temporarily relocated to allow conversion works. A higher level of vacancy may reduce displacement pressure and make phased redevelopment or retrofit more practical.',
+  'Transit accessibility': 'Transit accessibility refers to how well the building is connected to MTR, buses, walking routes, and other transport networks. Good accessibility is important because residential reuse depends on daily travel convenience for future residents.',
+  'Community facility catchment': 'This factor considers whether essential daily facilities are available within walking distance of the building. These may include markets, clinics, schools, parks, shops, community services, and other facilities needed to support residential living.',
+  'Residential neighbourhood compatibility': 'Residential neighbourhood compatibility refers to whether the surrounding area is suitable for people to live in. This includes land-use mix, nearby industrial activities, noise, traffic, pollution, safety, and whether residential use would fit with the existing neighbourhood context.',
+  'Floor-plate adaptability': 'Floor-plate adaptability refers to whether the building layout can be reasonably subdivided into residential units. Important considerations include floor depth, column spacing, core location, corridor arrangement, window access, and whether the plan can support liveable unit layouts.',
+  'Natural light and ventilation potential': 'This factor considers whether future residential units can receive adequate daylight and natural ventilation. It is especially important in industrial buildings because deep floor plates, limited windows, or poor facade exposure may make residential conversion difficult.',
+  'Structural robustness': 'Structural robustness refers to whether the existing building structure is strong, stable, and flexible enough to support residential conversion. This includes the condition of the frame, loading capacity, age, structural system, and ability to accommodate new code or safety requirements.',
+  'MEP retrofit difficulty': 'MEP retrofit difficulty refers to the complexity of upgrading mechanical, electrical, plumbing, drainage, and building services systems. Residential use usually requires different service standards from industrial use, so difficult service routing or insufficient capacity may increase cost and technical risk.',
+  'Vertical circulation adequacy': 'This factor considers whether the building has suitable lifts, staircases, cores, and accessible routes for residential occupation. Residential conversion may require adequate daily circulation, emergency escape, barrier-free access, and separation between different users.',
+  'Building height and services constraint': 'This factor considers whether the building height and number of storeys create additional retrofit challenges. Taller buildings may require more complex lift upgrades, fire safety provisions, drainage design, pressure control, and building services coordination.',
+  'Planning and zoning acceptability': 'Planning and zoning acceptability refers to whether the existing statutory planning context can support residential or mixed residential use. If the site zoning does not clearly permit residential conversion, the project may face planning application risk, uncertainty, or rejection.',
+  'Land lease and premium uncertainty': 'This factor considers whether lease conditions, waiver requirements, lease modification, or land premium could affect conversion feasibility. Even if the building is physically suitable, uncertain land administration costs or procedures may make the project less attractive or harder to implement.',
+  'Approval coordination risk': 'Approval coordination risk refers to the difficulty of obtaining and coordinating permissions from different government departments and authorities. Adaptive reuse may involve planning, building, fire safety, lands, environmental, and other approvals, so fragmented approval processes can create delay and uncertainty.',
+  'Fire safety upgrade burden': 'This factor considers the extent of fire safety works required before residential use can be accepted. It may include means of escape, fire service installations, compartmentation, refuge provisions, emergency access, and compliance with current safety standards.',
+  'Industrial hazard adjacency': 'Industrial hazard adjacency refers to risks created by nearby industrial, logistics, storage, workshop, or hazardous activities. Residential conversion may be less suitable where future residents would be exposed to noise, fire risk, chemical storage, heavy vehicles, or other industrial hazards.',
+  'Residential health protection': 'This factor considers whether the converted building can provide a healthy living environment for residents. It includes air quality, noise, hygiene, waste handling, natural ventilation, daylight, contamination risk, and protection from surrounding environmental impacts.',
+  'Conversion cost viability': 'Conversion cost viability refers to whether the expected retrofit and compliance costs are reasonable compared with the potential residential value or social benefit. A building may be technically convertible, but still unsuitable if the required works are too expensive or financially unrealistic.',
+  'Market absorption potential': 'Market absorption potential refers to whether there is sufficient housing demand for the type of residential reuse proposed. This includes district-level demand, affordability, rental or sales market support, accessibility, and whether future residents are likely to accept the location.',
+  'Policy and incentive leverage': 'This factor considers whether government policy, pilot schemes, fee waivers, incentives, or administrative support could improve project feasibility. Strong policy support may reduce uncertainty and make otherwise difficult conversion projects more achievable.',
+  'Embodied carbon retention': 'Embodied carbon retention refers to the environmental benefit of reusing the existing building structure instead of demolition and new construction. A project may have higher sustainability value if it can retain substantial structural fabric while still meeting residential standards.',
+  'Contamination and remediation risk': 'This factor considers whether past or surrounding industrial activities may have caused contamination that requires investigation or remediation. Soil, building materials, air quality, or operational residues may create health, cost, and approval risks for residential conversion.',
+  'Operational performance upgrade': 'Operational performance upgrade refers to whether the building can be improved to achieve acceptable energy, ventilation, thermal comfort, and environmental performance after conversion. This is important because residential use requires long-term comfort, efficiency, and sustainable operation.'
+};
 const surveyResponses = {
   feasibility: { academics: [4,5,4,4], government: [4,4,5], industry: [5,4,4,5], community: [4,4,3] },
   location: { academics: [5,5,4,5], government: [5,4,5], industry: [4,5,4,4], community: [5,5,5] },
@@ -210,6 +236,17 @@ function activeDimensions() { return state.modelMode === 'survey' ? researchDime
 function dimensionLabel(key) { return (researchDimensions.find(([id]) => id === key) || dimensions.find(([id]) => id === key) || [key, key])[1]; }
 function surveyQuestion(factor) {
   return 'How important is "' + factor.factor_name + '" when assessing whether an industrial building should be adaptively reused for residential use?';
+}
+function surveyExplanation(factor) { return surveyFactorExplanations[factor.factor_name] || factor.description; }
+function groupedFactorOptions(factors) {
+  const groups = researchDimensions.map(([key,label]) => {
+    const options = factors
+      .filter(factor => factor.dimension === key)
+      .map(factor => '<option value="'+h(factor.id)+'">'+h(factor.factor_name)+'</option>')
+      .join('');
+    return options ? '<optgroup label="'+h(label)+'">'+options+'</optgroup>' : '';
+  }).join('');
+  return '<option value="">Select a factor</option>' + groups;
 }
 function surveyRating(factorId) { return state.surveyRatings[factorId] ?? 50; }
 function selectedTopFactorIds() { return state.surveyTopFactors.filter(Boolean); }
@@ -401,7 +438,7 @@ function renderSurveyCriteria() {
   document.getElementById('surveyCriteriaList').innerHTML =
     '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+'</div>' +
     selected.map(factor =>
-    '<div class="criteria-card survey-slider-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p>'+h(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
+    '<div class="criteria-card survey-slider-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p class="factor-explanation">'+h(surveyExplanation(factor))+'</p><p class="survey-prompt"><strong>What participants rate:</strong> '+h(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
   ).join('');
   const participantGroup = document.getElementById('surveyParticipantGroup');
   participantGroup.value = state.participantGroup;
@@ -428,7 +465,7 @@ function renderSurveyCriteria() {
     if (value) value.textContent = e.target.value;
     updateSurveySummary();
   });
-  const optionsHtml = '<option value="">Select a factor</option>' + selected.map(factor => '<option value="'+h(factor.id)+'">'+h(factor.factor_name)+'</option>').join('');
+  const optionsHtml = groupedFactorOptions(selected);
   const ranked = state.surveyTopFactors.map((factorId, index) =>
     '<label>Rank '+(index + 1)+'<select data-top-factor="'+index+'">'+optionsHtml+'</select></label>'
   ).join('');
@@ -859,8 +896,8 @@ function init() {
   render();
 }
 function exportSurveyCriteria() {
-  const headers = ['factor_id','dimension','factor_name','survey_question','importance_slider','literature_source','data_indicator','scoring_method'];
-  const rows = selectedSurveyFactors().map(factor => [factor.id, dimensionLabel(factor.dimension), factor.factor_name, surveyQuestion(factor), '0=Not important; 50=Moderately important; 100=Very important', factor.literature_source, factor.data_indicator, factor.scoring_method]);
+  const headers = ['factor_id','dimension','factor_name','factor_explanation','survey_question','importance_slider','literature_source','data_indicator','scoring_method'];
+  const rows = selectedSurveyFactors().map(factor => [factor.id, dimensionLabel(factor.dimension), factor.factor_name, surveyExplanation(factor), surveyQuestion(factor), '0=Not important; 50=Moderately important; 100=Very important', factor.literature_source, factor.data_indicator, factor.scoring_method]);
   downloadCsv('adaptive-reuse-survey-criteria.csv', headers, rows);
 }
 function addStakeholderFactor() {

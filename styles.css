@@ -104,6 +104,9 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .criteria-card header span, .diff-card header span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .criteria-card p, .survey-question p { margin: 0; color: #334155; line-height: 1.5; }
 .survey-slider-card { gap: 10px; }
+.factor-explanation { padding: 10px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; font-size: 13px; }
+.survey-prompt { font-size: 13px; }
+.survey-prompt strong { color: var(--ink); }
 .slider-question { margin: 12px 0 0; }
 .slider-question span { display: flex; justify-content: space-between; gap: 12px; color: #475569; font-weight: 800; }
 .slider-question strong { color: var(--teal); font-size: 18px; }
