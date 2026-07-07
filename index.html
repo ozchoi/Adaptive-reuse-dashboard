@@ -51,6 +51,7 @@
         <button class="tab" data-tab="factors">Critical Factors</button>
         <button class="tab" data-tab="survey">Survey Criteria</button>
         <button class="tab" data-tab="stakeholders">Stakeholder Input</button>
+        <button class="tab" data-tab="survey-results">Survey Result Summary</button>
         <button class="tab" data-tab="weighted">Final Weights</button>
         <button class="tab" data-tab="map">GIS Map</button>
         <button class="tab" data-tab="comparison">Comparison</button>
@@ -117,6 +118,24 @@
         </div>
       </section>
 
+      <section id="survey-results" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Survey Result Summary</h2>
+          </div>
+          <p class="map-note">Summary of the current pilot survey dataset used to derive the eight-dimension factor weighting. Filter by stakeholder group to compare response patterns.</p>
+          <div id="surveyResultKpis" class="kpi-grid compact"></div>
+        </article>
+        <article class="panel"><h2>Factor Importance Scores</h2><div id="surveyFactorChart" class="bars wide"></div></article>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Ranked Factor Results</h2>
+            <p id="surveyResultMeta"></p>
+          </div>
+          <div class="table-wrap"><table id="surveyResultTable"></table></div>
+        </article>
+      </section>
+
       <section id="weighted" class="tab-panel">
         <div class="grid scoring-grid">
           <article class="panel">
@@ -167,6 +186,7 @@
               <label>Compare with<select id="compareOne"></select></label>
               <label>Compare with<select id="compareTwo"></select></label>
             </div>
+            <div id="baselineControls" class="baseline-controls"></div>
             <div id="radarChart" class="radar"></div>
           </article>
         </div>

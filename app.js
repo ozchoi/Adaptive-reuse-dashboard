@@ -45,11 +45,11 @@ const dimensions = [
   ['policyCertainty','Policy and Implementation','Fee waivers, pilot schemes, one-stop approval, administrative certainty and first-mover risk.']
 ];
 const scenarios = {
-  balanced: { label: 'Refined 11-factor baseline', summary: 'Uses the priority levels from the refinement document as the default weighting.', weights: [9,10,10,10,10,9,8,8,8,10,8] },
-  housing: { label: 'Housing-priority scenario', summary: 'Prioritises housing demand, district capacity, accessibility and neighbourhood fit.', weights: [20,7,6,7,8,8,14,12,10,5,3] },
-  policy: { label: 'Policy-feasibility scenario', summary: 'Prioritises zoning, lease, ownership, regulation and implementation certainty.', weights: [5,16,16,14,14,7,5,4,5,5,9] },
-  market: { label: 'Market-driven scenario', summary: 'Prioritises owner investment logic, market absorption, governance and programme risk.', weights: [16,7,9,12,8,8,7,4,5,18,6] },
-  community: { label: 'Community-impact scenario', summary: 'Prioritises district capacity, neighbourhood compatibility, transport and housing benefit.', weights: [14,6,4,5,9,6,13,16,16,5,6] }
+  balanced: { label: 'Survey-derived balanced scenario', summary: 'Uses final survey-derived weights across the eight critical-factor dimensions.', weights: null },
+  housing: { label: 'Housing-outcome scenario', summary: 'Prioritises location support, design adaptability, safety and environmental residential quality.', weights: [10,18,16,10,9,16,8,13] },
+  policy: { label: 'Policy-feasibility scenario', summary: 'Prioritises feasibility, regulatory constraints, building services and health and safety.', weights: [18,8,8,15,22,18,6,5] },
+  market: { label: 'Market-driven scenario', summary: 'Prioritises economic viability, feasibility, location and implementation practicality.', weights: [18,16,10,10,10,8,22,6] },
+  community: { label: 'Community-impact scenario', summary: 'Prioritises location, health and safety, environmental performance and design quality.', weights: [8,22,14,8,8,18,6,16] }
 };
 const researchDimensions = [
   ['feasibility','Feasibility','Physical and procedural ease of conversion.'],
@@ -73,7 +73,7 @@ const criticalFactors = [
   ['design','Structural robustness','Capacity of existing structure to support residential conversion and code upgrades.','Langston et al.; Wilkinson et al.','Structural age and condition proxy','Score from age, condition and structural system',true],
   ['services','MEP retrofit difficulty','Complexity of upgrading power, plumbing, drainage, lifts and vertical services.','Bullen & Love; Douglas','Services condition and riser capacity','Expert score for replacement need and routing difficulty',true],
   ['services','Vertical circulation adequacy','Adequacy of lifts, stairs, cores and accessible routes for residential occupation.','Hong Kong Buildings Department guidance','Core count and accessibility audit','Score from lift/core and barrier-free access review',true],
-  ['services','Building height and services constraint','Influence of height, storeys and plant capacity on retrofit feasibility.','Douglas; Langston et al.','Building height and storeys','Penalty for height/storey combinations that raise retrofit complexity',false],
+  ['services','Building height and services constraint','Influence of height, storeys and plant capacity on retrofit feasibility.','Douglas; Langston et al.','Building height and storeys','Penalty for height/storey combinations that raise retrofit complexity',true],
   ['regulatory','Planning and zoning acceptability','Whether existing zoning can support residential or mixed residential conversion.','Town Planning Board OZP; Yung & Chan','OZP zoning group and planning permission route','Higher score for residential or business zones with clearer pathway',true],
   ['regulatory','Land lease and premium uncertainty','Risk created by lease modification, waiver and premium requirements.','Lands Department practice; HK adaptive reuse studies','Lease modification need and premium risk','Expert risk score from lease and premium pathway',true],
   ['regulatory','Approval coordination risk','Complexity of coordinating planning, building, fire and lands approvals.','Conejos et al.; Wilkinson et al.','Number of approval authorities and uncertainty','Score lower where multi-agency uncertainty is high',true],
@@ -82,7 +82,7 @@ const criticalFactors = [
   ['safety','Residential health protection','Ability to meet hygiene, acoustic and occupant health expectations.','Hong Kong Planning Standards and Guidelines','Noise, air quality and hygiene constraints','Score from environmental and health risk indicators',true],
   ['economic','Conversion cost viability','Likelihood that conversion cost remains proportionate to residential value.','Bullen & Love; Wilkinson et al.','Retrofit cost and GFA proxy','Score from feasibility, building size and expected upgrade burden',true],
   ['economic','Market absorption potential','Strength of housing demand and residential market support in the district.','Remoy & van der Voordt; HK housing studies','Housing demand and accessibility','Score from housing demand and location indicators',true],
-  ['economic','Policy and incentive leverage','Potential benefit from policy support, fee waiver or pilot implementation.','Hong Kong adaptive reuse policy studies','Policy certainty and incentive eligibility','Score from policy certainty and zoning pathway',false],
+  ['economic','Policy and incentive leverage','Potential benefit from policy support, fee waiver or pilot implementation.','Hong Kong adaptive reuse policy studies','Policy certainty and incentive eligibility','Score from policy certainty and zoning pathway',true],
   ['environmental','Embodied carbon retention','Potential sustainability benefit from retaining the existing structure.','Bullen & Love; Langston et al.','Existing GFA and structural retention potential','Higher score for larger reusable structure with feasible retention',true],
   ['environmental','Contamination and remediation risk','Likelihood of soil, material or operational contamination affecting conversion.','Environmental adaptive reuse studies','Environmental risk rating','Invert environmental risk to score',true],
   ['environmental','Operational performance upgrade','Ability to improve energy, ventilation and environmental performance through retrofit.','Douglas; sustainability retrofit literature','Services and environmental performance score','Composite score from services and environmental indicators',true]
@@ -136,12 +136,12 @@ const stakeholderWeightGroups = [
   { key: 'academics', label: 'Academic / researcher' },
   { key: 'government', label: 'Government / statutory body' },
   { key: 'industry', label: 'Industrial Unit Owner' },
-  { key: 'community', label: 'Community / NGO' }
+  { key: 'community', label: 'Community / NGO' },
+  { key: 'architectPlanner', label: 'architect/ Planner/ related expertise' },
+  { key: 'developer', label: 'Developer' }
 ];
 const surveyStakeholderGroups = [
-  ...stakeholderWeightGroups.map(group => group.label),
-  'architect/ Planner/ related expertise',
-  'Developer'
+  ...stakeholderWeightGroups.map(group => group.label)
 ];
 const stakeholderGroups = [...surveyStakeholderGroups, 'Professional consultant'];
 const reuseOutcomeOptions = [
@@ -209,16 +209,17 @@ const mtrStations = [
 ];
 const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxHeight: 220, maxStoreys: 60, maxMtr: 1200 };
 const defaultMapLayers = { buildings: true, catchment: true, facilities: true, mtr: true, ozp: true };
+const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All', risk: 'All', minStoreys: 0, minScore: 0 };
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, participantGroup: '', industrialOwnershipType: '', stakeholderGroupWeights: { academics: 25, government: 25, industry: 25, community: 25 } };
+], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 } };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
 const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
-const radarPalette = ['#0f766e', '#2563eb', '#d97706'];
+const radarPalette = ['#0f766e', '#2563eb', '#d97706', '#64748b'];
 const fmt = new Intl.NumberFormat('en-HK');
 function h(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function csvEscape(value) { return '"'+String(value).replaceAll('"','""')+'"'; }
@@ -267,15 +268,47 @@ function weightStats() {
   const rows = researchDimensions.map(([key,label]) => {
     const groups = surveyResponses[key];
     const values = flattenResponses(groups);
-    const groupMeans = Object.fromEntries(Object.entries(groups).map(([group, scores]) => [group, mean(scores)]));
-    const weightedMean = stakeholderWeightGroups.reduce((sum, group) => sum + (groupMeans[group.key] || 0) * state.stakeholderGroupWeights[group.key] / 100, 0);
+    const fallbackMean = mean(values);
+    const groupMeans = Object.fromEntries(stakeholderWeightGroups.map(group => [group.key, groups[group.key] ? mean(groups[group.key]) : fallbackMean]));
+    const weightedMean = stakeholderWeightGroups.reduce((sum, group) => sum + groupMeans[group.key] * state.stakeholderGroupWeights[group.key] / 100, 0);
     return { key, label, mean: weightedMean, median: median(values), std: stdDev(values), groupMeans };
   });
   const total = rows.reduce((sum, row) => sum + row.mean, 0) || 1;
   return rows.map(row => ({...row, finalWeight: row.mean / total * 100}));
 }
 function finalResearchWeights() { return weightStats().map(row => Math.max(1, Math.round(row.finalWeight))); }
+function scenarioWeights(key) { return key === 'balanced' ? finalResearchWeights() : (scenarios[key] || scenarios.balanced).weights.slice(); }
 function selectedSurveyFactors() { return criticalFactors.filter(factor => factor.include_in_survey); }
+function surveyGroupResponseCount(groupKey) {
+  const firstDimension = researchDimensions[0][0];
+  return surveyResponses[firstDimension][groupKey]?.length || 0;
+}
+function surveyRespondentTotal(groupKey = state.surveyResultGroup) {
+  return stakeholderWeightGroups.reduce((sum, group) => sum + (groupKey === 'All' || group.key === groupKey ? surveyGroupResponseCount(group.key) : 0), 0);
+}
+function surveyValuesForDimension(dimensionKey, groupKey = state.surveyResultGroup) {
+  const groups = surveyResponses[dimensionKey] || {};
+  return stakeholderWeightGroups.flatMap(group => groupKey === 'All' || group.key === groupKey ? (groups[group.key] || []) : []);
+}
+function factorSurveyScore(factor, groupKey = state.surveyResultGroup) {
+  const values = surveyValuesForDimension(factor.dimension, groupKey);
+  if (!values.length) return null;
+  const base = mean(values) / 5 * 100;
+  const dimensionFactors = criticalFactors.filter(item => item.dimension === factor.dimension);
+  const index = dimensionFactors.findIndex(item => item.id === factor.id);
+  const offset = (index - (dimensionFactors.length - 1) / 2) * 2;
+  return Math.max(0, Math.min(100, Math.round(base + offset)));
+}
+function surveyResultRows(groupKey = state.surveyResultGroup) {
+  return criticalFactors.map(factor => {
+    const scoreValue = factorSurveyScore(factor, groupKey);
+    return {
+      ...factor,
+      score: scoreValue,
+      responseCount: surveyValuesForDimension(factor.dimension, groupKey).length
+    };
+  }).sort((a,b) => (b.score ?? -1) - (a.score ?? -1) || a.factor_name.localeCompare(b.factor_name));
+}
 function mergedFactors() {
   const literature = selectedSurveyFactors().map(factor => ({ type: 'Literature', name: factor.factor_name, dimension: factor.dimension, source: factor.literature_source, include: true }));
   const stakeholder = state.stakeholderFactors.map(factor => ({ type: 'Stakeholder', name: factor.factor_name, dimension: factor.related_dimension, source: factor.stakeholder_group + ' - ' + factor.suggested_by, include: factor.include_in_final_model }));
@@ -332,10 +365,71 @@ function score(building, weights = state.weights, modelMode = state.modelMode) {
 function category(s) { return s >= 70 ? 'High' : s >= 40 ? 'Medium' : 'Low'; }
 function scored(weights = state.weights, modelMode = state.modelMode) { return buildings.map(b => ({...b, score: score(b, weights, modelMode), category: category(score(b, weights, modelMode))})).sort((a,b)=>b.score-a.score); }
 function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.vacancy >= state.filters.minVacancy && b.age <= state.filters.maxAge && b.height <= state.filters.maxHeight && b.storeys <= state.filters.maxStoreys && b.mtr <= state.filters.maxMtr); }
+function baselineRows() {
+  const f = state.baselineFilters;
+  return scored().filter(b =>
+    (f.district === 'All' || b.district === f.district) &&
+    (f.zoning === 'All' || b.zoning === f.zoning) &&
+    (f.ownership === 'All' || b.ownership === f.ownership) &&
+    (f.risk === 'All' || b.risk === f.risk) &&
+    b.storeys >= f.minStoreys &&
+    b.score >= f.minScore
+  );
+}
+function averageBaselineBuilding(rows, modelDimensions = activeDimensions()) {
+  if (!rows.length) return null;
+  const average = {
+    id: 'AVG',
+    name: 'Baseline average',
+    category: 'Average',
+    score: Math.round(mean(rows.map(b => b.score)))
+  };
+  modelDimensions.forEach(([key]) => {
+    average[key] = Math.round(mean(rows.map(b => b[key])));
+  });
+  return average;
+}
+function baselineDescription(rows) {
+  const f = state.baselineFilters;
+  const parts = [];
+  if (f.district !== 'All') parts.push(f.district);
+  if (f.zoning !== 'All') parts.push(f.zoning);
+  if (f.ownership !== 'All') parts.push(f.ownership);
+  if (f.risk !== 'All') parts.push(f.risk + ' environmental risk');
+  if (f.minStoreys > 0) parts.push(f.minStoreys + '+ storeys');
+  if (f.minScore > 0) parts.push(f.minScore + '+ score');
+  return (parts.length ? parts.join(', ') : 'All buildings') + ' | ' + rows.length + ' building' + (rows.length === 1 ? '' : 's');
+}
 function sortedRows(rows) { const {key, dir} = state.sort; const sign = dir === 'asc' ? 1 : -1; return rows.slice().sort((a,b) => { const av = a[key]; const bv = b[key]; if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign; return String(av).localeCompare(String(bv)) * sign; }); }
 function options(id, values) { const el = document.getElementById(id); el.innerHTML = ['All', ...new Set(values)].sort((a,b)=> a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)).map(v => '<option>'+h(v)+'</option>').join(''); }
 function bar(parent, label, value, max = 100, color = '#0f766e') { parent.insertAdjacentHTML('beforeend', '<div class="bar-row"><span>'+h(label)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.max(2,value/max*100)+'%;background:'+color+'"></div></div><strong>'+h(value)+'</strong></div>'); }
 function empty(parent, message) { parent.innerHTML = '<div class="empty-state">'+h(message)+'</div>'; }
+function setSurveyInProgress() {
+  state.surveySubmitted = false;
+  state.surveyResultsUnlocked = false;
+  updateSurveyResultAccess();
+}
+function activateTab(tabName) {
+  if (tabName === 'survey-results' && !state.surveyResultsUnlocked) return;
+  document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
+  const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
+  const panel = document.getElementById(tabName);
+  if (!tab || !panel) return;
+  tab.classList.add('active');
+  panel.classList.add('active');
+  if (tabName === 'map' && suitabilityMap) setTimeout(() => {
+    suitabilityMap.invalidateSize();
+    updateMainOzpOverlay();
+  }, 0);
+}
+function updateSurveyResultAccess() {
+  const resultTab = document.querySelector('.tab[data-tab="survey-results"]');
+  if (!resultTab) return;
+  resultTab.hidden = !state.surveyResultsUnlocked;
+  resultTab.disabled = !state.surveyResultsUnlocked;
+  resultTab.setAttribute('aria-hidden', String(!state.surveyResultsUnlocked));
+  if (!state.surveyResultsUnlocked && document.getElementById('survey-results')?.classList.contains('active')) activateTab('survey');
+}
 function radarPoint(index, total, radius, value = 100) {
   const angle = -Math.PI / 2 + index * Math.PI * 2 / total;
   const scaled = radius * value / 100;
@@ -350,7 +444,9 @@ function renderRadar(selected) {
   const radius = 145;
   const all = scored();
   const compareBuildings = state.compare.map(id => all.find(b => b.id === id)).filter(Boolean).filter(b => b.id !== selected.id);
-  const series = [selected, ...compareBuildings].slice(0, 3);
+  const baselineSet = baselineRows();
+  const baselineAverage = averageBaselineBuilding(baselineSet, modelDimensions);
+  const series = [selected, ...compareBuildings].slice(0, 3).concat(baselineAverage ? [baselineAverage] : []);
   const rings = [20,40,60,80,100].map(level => '<polygon class="radar-ring" points="'+modelDimensions.map((_, i) => radarPoint(i, modelDimensions.length, radius, level).join(',')).join(' ')+'" />').join('');
   const axes = modelDimensions.map((_, i) => {
     const [x,y] = radarPoint(i, modelDimensions.length, radius, 100);
@@ -367,16 +463,17 @@ function renderRadar(selected) {
       const [x,y] = radarPoint(i, modelDimensions.length, radius, building[key]);
       return '<circle class="radar-dot" cx="'+x+'" cy="'+y+'" r="3.6" style="fill:'+color+'"><title>'+h(building.name)+' - '+h(modelDimensions[i][1])+': '+h(building[key])+'</title></circle>';
     }).join('');
-    return '<polygon class="radar-area radar-series-'+seriesIndex+'" style="--series-color:'+color+'" points="'+points+'" />' + dots;
+    return '<polygon class="radar-area '+(building.id === 'AVG' ? 'radar-baseline' : 'radar-series-'+seriesIndex)+'" style="--series-color:'+color+'" points="'+points+'" />' + dots;
   }).join('');
-  const legend = series.map((building, i) => '<span><i style="background:'+radarPalette[i]+'"></i>'+h(building.id)+' '+h(building.name)+' <strong>'+h(building.score)+'</strong></span>').join('');
+  const legend = series.map((building, i) => '<span><i style="background:'+radarPalette[i]+'"></i>'+h(building.id === 'AVG' ? 'Average baseline' : building.id + ' ' + building.name)+' <strong>'+h(building.score)+'</strong></span>').join('');
   document.getElementById('radarChart').innerHTML =
     '<div class="radar-summary"><span>Selected building</span><strong>'+h(selected.score)+'</strong><em>'+h(selected.name)+' - '+h(selected.category)+' suitability</em></div>' +
+    '<div class="radar-summary baseline-summary"><span>Baseline average</span><strong>'+h(baselineAverage ? baselineAverage.score : '- ')+'</strong><em>'+h(baselineDescription(baselineSet))+'</em></div>' +
     '<div class="radar-legend">'+legend+'</div>' +
     '<svg class="radar-svg" viewBox="-220 -205 440 430" role="img" aria-label="Radar chart for '+h(selected.name)+' residential conversion suitability">' +
     rings + axes + shapes + labels +
     '</svg>' +
-    '<div class="radar-note">Each polygon is one building. Wider shape means stronger suitability; gaps between polygons show which index factors drive the difference.</div>';
+    '<div class="radar-note">The grey polygon is the average profile for buildings matching the baseline conditions. Use the filters above to compare against a more specific peer group.</div>';
 }
 function render() {
   const rows = filtered();
@@ -411,6 +508,7 @@ function renderResearchWorkflow() {
   renderFactorsLibrary();
   renderSurveyCriteria();
   renderStakeholderFactors();
+  renderSurveyResults();
   renderFinalWeights();
 }
 function renderFactorsLibrary() {
@@ -445,7 +543,7 @@ function renderSurveyCriteria() {
   participantGroup.onchange = e => {
     state.participantGroup = e.target.value;
     if (state.participantGroup !== 'Industrial Unit Owner') state.industrialOwnershipType = '';
-    state.surveySubmitted = false;
+    setSurveyInProgress();
     renderSurveyCriteria();
   };
   const industrialOwnershipType = document.getElementById('industrialOwnershipType');
@@ -453,14 +551,14 @@ function renderSurveyCriteria() {
     industrialOwnershipType.value = state.industrialOwnershipType;
     industrialOwnershipType.onchange = e => {
       state.industrialOwnershipType = e.target.value;
-      state.surveySubmitted = false;
+      setSurveyInProgress();
       updateSurveySummary();
     };
   }
   document.querySelectorAll('[data-survey-rating]').forEach(input => input.oninput = e => {
     const id = e.target.dataset.surveyRating;
     state.surveyRatings[id] = Number(e.target.value);
-    state.surveySubmitted = false;
+    setSurveyInProgress();
     const value = document.getElementById('surveyValue-' + id);
     if (value) value.textContent = e.target.value;
     updateSurveySummary();
@@ -482,7 +580,7 @@ function renderSurveyCriteria() {
     select.value = state.surveyTopFactors[Number(select.dataset.topFactor)] || '';
     select.onchange = e => {
       state.surveyTopFactors[Number(e.target.dataset.topFactor)] = e.target.value;
-      state.surveySubmitted = false;
+      setSurveyInProgress();
       updateSurveySummary();
     };
   });
@@ -491,7 +589,7 @@ function renderSurveyCriteria() {
     state.preferredReuseOutcomes = e.target.checked
       ? [...new Set([...state.preferredReuseOutcomes, option])]
       : state.preferredReuseOutcomes.filter(item => item !== option);
-    state.surveySubmitted = false;
+    setSurveyInProgress();
     updateSurveySummary();
   });
   document.getElementById('submitSurvey').onclick = submitSurvey;
@@ -516,17 +614,19 @@ function updateSurveySummary() {
     return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
   }).filter(Boolean).join('');
   const message = state.surveySubmitted
-    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span>'
+    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
     : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' sliders adjusted. Complete participant profile and select three different top factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span>';
   status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (duplicateCount || missingParticipant ? ' has-error' : '');
   status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (duplicateCount ? '<span>Each top-3 rank must use a different factor.</span>' : '') + (rankedNames ? '<ol>'+rankedNames+'</ol>' : '');
+  const seeResultsButton = document.getElementById('seeSurveyResults');
+  if (seeResultsButton) seeResultsButton.onclick = () => activateTab('survey-results');
 }
 function submitSurvey() {
   const topIds = selectedTopFactorIds();
   const status = document.getElementById('surveySubmitStatus');
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
   if (missingParticipant || topIds.length !== 3 || new Set(topIds).size !== 3) {
-    state.surveySubmitted = false;
+    setSurveyInProgress();
     updateSurveySummary();
     if (status) status.insertAdjacentHTML('beforeend', '<span>Please complete the participant profile and choose three different factors for Rank 1, Rank 2 and Rank 3.</span>');
     return;
@@ -535,6 +635,9 @@ function submitSurvey() {
     if (state.surveyRatings[factor.id] === undefined) state.surveyRatings[factor.id] = surveyRating(factor.id);
   });
   state.surveySubmitted = true;
+  state.surveyResultsUnlocked = true;
+  updateSurveyResultAccess();
+  renderSurveyResults();
   updateSurveySummary();
 }
 function renderStakeholderFactors() {
@@ -547,6 +650,51 @@ function renderStakeholderFactors() {
   document.querySelectorAll('[data-stakeholder-include]').forEach(input => input.onchange = e => {
     state.stakeholderFactors[Number(e.target.dataset.stakeholderInclude)].include_in_final_model = e.target.checked;
     renderStakeholderFactors();
+  });
+}
+function renderSurveyResults() {
+  const filter = state.surveyResultGroup;
+  const rows = surveyResultRows(filter);
+  const scoredRows = rows.filter(row => row.score !== null);
+  const respondentTotal = surveyRespondentTotal(filter);
+  const averageScore = scoredRows.length ? Math.round(mean(scoredRows.map(row => row.score))) : 0;
+  const topFactor = scoredRows[0];
+  const kpiEl = document.getElementById('surveyResultKpis');
+  if (!kpiEl) return;
+  document.getElementById('surveyResultKpis').innerHTML = [
+    ['Survey responses', respondentTotal],
+    ['Factors scored', scoredRows.length + ' of ' + rows.length],
+    ['Average factor score', scoredRows.length ? averageScore + '/100' : 'No data']
+  ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
+  document.getElementById('surveyResultKpis').insertAdjacentHTML('beforeend', renderStakeholderDistributionCard(filter, true));
+  const factorChart = document.getElementById('surveyFactorChart');
+  factorChart.innerHTML = '';
+  if (scoredRows.length) scoredRows.forEach(row => bar(factorChart, row.factor_name, row.score, 100, '#0f766e'));
+  else empty(factorChart, 'No survey responses recorded for this stakeholder group yet.');
+  bindSurveyResultGroupButtons();
+  document.getElementById('surveyResultMeta').textContent = (topFactor ? 'Top factor: ' + topFactor.factor_name + ' (' + topFactor.score + '/100)' : 'No scored factors') + ' | Filter: ' + (filter === 'All' ? 'All stakeholder groups' : stakeholderGroupLabel(filter));
+  document.getElementById('surveyResultTable').innerHTML =
+    '<thead><tr><th>Rank</th><th>Dimension</th><th>Factor</th><th>Importance score</th><th>Responses</th><th>Interpretation</th></tr></thead><tbody>' +
+    rows.map((row, index) => {
+      const scoreText = row.score === null ? 'No data' : row.score + '/100';
+      const interpretation = row.score === null ? 'Awaiting stakeholder responses' : row.score >= 85 ? 'Very high priority' : row.score >= 75 ? 'High priority' : row.score >= 65 ? 'Moderate priority' : 'Lower relative priority';
+      return '<tr><td>'+h(row.score === null ? '-' : index + 1)+'</td><td>'+h(dimensionLabel(row.dimension))+'</td><td><strong>'+h(row.factor_name)+'</strong></td><td>'+h(scoreText)+'</td><td>'+h(row.responseCount)+'</td><td>'+h(interpretation)+'</td></tr>';
+    }).join('') + '</tbody>';
+}
+function renderStakeholderDistributionCard(filter, compact = false) {
+  const maxCount = Math.max(1, ...stakeholderWeightGroups.map(group => surveyGroupResponseCount(group.key)));
+  const activeLabel = filter === 'All' ? 'All stakeholder groups' : stakeholderGroupLabel(filter);
+  return '<div class="'+(compact ? 'kpi stakeholder-distribution-kpi' : 'stakeholder-distribution-card')+'"><div class="distribution-heading"><span>Stakeholder groups</span><button data-survey-result-group="All" type="button" class="'+(filter === 'All' ? 'active' : '')+'">All</button></div><strong>'+h(activeLabel)+'</strong><div class="mini-distribution-bars">' +
+    stakeholderWeightGroups.map(group => {
+      const count = surveyGroupResponseCount(group.key);
+      const isActive = filter === 'All' || filter === group.key;
+      return '<button data-survey-result-group="'+h(group.key)+'" type="button" class="'+(isActive ? 'active' : '')+'"><span>'+h(group.label)+'</span><div><i style="width:'+Math.max(2, count / maxCount * 100)+'%"></i></div><em>'+h(count)+'</em></button>';
+    }).join('') + '</div></div>';
+}
+function bindSurveyResultGroupButtons() {
+  document.querySelectorAll('[data-survey-result-group]').forEach(button => button.onclick = e => {
+    state.surveyResultGroup = e.currentTarget.dataset.surveyResultGroup;
+    renderSurveyResults();
   });
 }
 function renderFinalWeights() {
@@ -817,6 +965,7 @@ function renderWeights(selected) {
     render();
   });
   renderCompareControls();
+  renderBaselineControls();
   renderRadar(selected);
 }
 function renderCompareControls() {
@@ -832,13 +981,38 @@ function renderCompareControls() {
     };
   });
 }
+function renderBaselineControls() {
+  const el = document.getElementById('baselineControls');
+  if (!el) return;
+  const selectOptions = (values, current) => ['All', ...new Set(values)].sort((a,b)=> a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)).map(value => '<option '+(value === current ? 'selected' : '')+'>'+h(value)+'</option>').join('');
+  el.innerHTML =
+    '<div class="baseline-heading"><strong>Average baseline conditions</strong><button id="resetBaselineFilters" type="button">Reset</button></div>' +
+    '<div class="baseline-filter-grid">' +
+    '<label>District<select data-baseline-filter="district">'+selectOptions(buildings.map(b => b.district), state.baselineFilters.district)+'</select></label>' +
+    '<label>Zoning<select data-baseline-filter="zoning">'+selectOptions(buildings.map(b => b.zoning), state.baselineFilters.zoning)+'</select></label>' +
+    '<label>Ownership<select data-baseline-filter="ownership">'+selectOptions(buildings.map(b => b.ownership), state.baselineFilters.ownership)+'</select></label>' +
+    '<label>Environmental risk<select data-baseline-filter="risk">'+selectOptions(['Low','Medium','High'], state.baselineFilters.risk)+'</select></label>' +
+    '<label>Minimum storeys <span>'+h(state.baselineFilters.minStoreys)+'</span><input data-baseline-filter="minStoreys" type="range" min="0" max="60" value="'+h(state.baselineFilters.minStoreys)+'" /></label>' +
+    '<label>Minimum score <span>'+h(state.baselineFilters.minScore)+'</span><input data-baseline-filter="minScore" type="range" min="0" max="100" value="'+h(state.baselineFilters.minScore)+'" /></label>' +
+    '</div>';
+  document.querySelectorAll('[data-baseline-filter]').forEach(input => input.oninput = e => {
+    const key = e.target.dataset.baselineFilter;
+    state.baselineFilters[key] = ['minStoreys','minScore'].includes(key) ? Number(e.target.value) : e.target.value;
+    renderWeights(scored().find(b => b.id === state.selected) || scored()[0]);
+  });
+  document.getElementById('resetBaselineFilters').onclick = () => {
+    state.baselineFilters = {...defaultBaselineFilters};
+    renderWeights(scored().find(b => b.id === state.selected) || scored()[0]);
+  };
+}
 function renderScenarios() {
   const el = document.getElementById('scenarioComparison');
-  el.innerHTML = Object.entries(scenarios).filter(([k])=>k!=='balanced').map(([k,s]) => {
-    const r = scored(s.weights, 'baseline').slice(0,4);
-    const nw = normalisedWeights(s.weights);
-    const emphasis = dimensions.map(([key,label], i) => ({ label, weight: Math.round(nw[i]) })).sort((a,b)=>b.weight-a.weight).slice(0,4);
-    return '<div class="scenario-card"><h3>'+h(s.label)+'</h3><p>'+h(s.summary)+'</p><div class="scenario-emphasis"><span>Higher emphasis</span>'+emphasis.map(f => '<strong>'+h(f.label)+' '+h(f.weight)+'%</strong>').join('')+'</div><ol>'+r.map(b=>'<li>'+h(b.name)+' <strong>'+h(b.score)+'</strong></li>').join('')+'</ol></div>';
+  el.innerHTML = Object.entries(scenarios).map(([k,s]) => {
+    const weights = scenarioWeights(k);
+    const r = scored(weights, 'survey').slice(0,4);
+    const nw = normalisedWeights(weights);
+    const emphasis = researchDimensions.map(([key,label], i) => ({ label, weight: Math.round(nw[i]) })).sort((a,b)=>b.weight-a.weight).slice(0,4);
+    return '<div class="scenario-card '+(k === state.scenario ? 'active' : '')+'"><h3>'+h(s.label)+'</h3><p>'+h(s.summary)+'</p><div class="scenario-emphasis"><span>Survey-derived higher emphasis</span>'+emphasis.map(f => '<strong>'+h(f.label)+' '+h(f.weight)+'%</strong>').join('')+'</div><ol>'+r.map(b=>'<li>'+h(b.name)+' <strong>'+h(b.score)+'</strong></li>').join('')+'</ol></div>';
   }).join('');
   document.querySelectorAll('#scenarioButtons button').forEach(btn => btn.classList.toggle('active', btn.dataset.scenario === state.scenario));
 }
@@ -866,18 +1040,14 @@ function init() {
   document.getElementById('stakeholderDimension').innerHTML = researchDimensions.map(([key,label]) => '<option value="'+h(key)+'">'+h(label)+'</option>').join('');
   renderCompareControls();
   document.getElementById('scenarioButtons').innerHTML = Object.entries(scenarios).map(([k,s]) => '<button data-scenario="'+k+'">'+h(s.label)+'<small>'+h(s.summary)+'</small></button>').join('');
-  document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => { state.scenario = btn.dataset.scenario; render(); });
-  document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
-    document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'map') {
-      if (suitabilityMap) setTimeout(() => {
-        suitabilityMap.invalidateSize();
-        updateMainOzpOverlay();
-      }, 0);
-    }
+  document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => {
+    state.scenario = btn.dataset.scenario;
+    state.modelMode = 'survey';
+    state.weights = scenarioWeights(state.scenario);
+    state.researchWeights = state.weights.slice();
+    render();
   });
+  document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => activateTab(tab.dataset.tab));
   ['search','district','zoning','ownership','risk','compatibility'].forEach(id => document.getElementById(id).oninput = e => { state.filters[id] = e.target.value; render(); });
   [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxHeight','maxHeightValue'],['maxStoreys','maxStoreysValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
   document.getElementById('resetFilters').onclick = () => { state.filters = {...defaultFilters}; syncFilterControls(); render(); };
@@ -893,6 +1063,7 @@ function init() {
     render();
   };
   syncFilterControls();
+  updateSurveyResultAccess();
   render();
 }
 function exportSurveyCriteria() {
