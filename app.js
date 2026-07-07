@@ -222,6 +222,17 @@ const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet ma
 const radarPalette = ['#0f766e', '#2563eb', '#d97706', '#64748b'];
 const fmt = new Intl.NumberFormat('en-HK');
 function h(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const termExplanations = {
+  OZP: 'Outline Zoning Plan: a statutory town plan in Hong Kong that shows land-use zones, planning intentions and development restrictions.',
+  MEP: 'Mechanical, electrical and plumbing systems, including lifts, power, water supply, drainage, ventilation and other building services.',
+  initial: 'Initial means the first-stage or starting-point assessment before later survey weighting, filtering or validation is applied.'
+};
+function explainTerms(value) {
+  return h(value).replace(/\b(OZP|MEP|initial)\b/gi, match => {
+    const key = match.toLowerCase() === 'initial' ? 'initial' : match.toUpperCase();
+    return '<span class="term-tip" tabindex="0" title="'+h(termExplanations[key])+'">'+h(match)+'</span>';
+  });
+}
 function csvEscape(value) { return '"'+String(value).replaceAll('"','""')+'"'; }
 function downloadCsv(filename, headers, rows) {
   const lines = [headers].concat(rows).map(row => row.map(csvEscape).join(','));
@@ -520,7 +531,7 @@ function renderFactorsLibrary() {
   document.getElementById('factorMeta').textContent = criticalFactors.length + ' literature-derived factors';
   document.getElementById('factorsTable').innerHTML =
     '<thead><tr><th>Include</th><th>Dimension</th><th>Factor</th><th>Description</th><th>Literature source</th><th>Data indicator</th><th>Scoring method</th></tr></thead><tbody>' +
-    criticalFactors.map(factor => '<tr><td><input class="row-check" data-factor-include="'+h(factor.id)+'" type="checkbox" '+(factor.include_in_survey ? 'checked' : '')+' /></td><td>'+h(dimensionLabel(factor.dimension))+'</td><td><strong>'+h(factor.factor_name)+'</strong></td><td>'+h(factor.description)+'</td><td>'+h(factor.literature_source)+'</td><td>'+h(factor.data_indicator)+'</td><td>'+h(factor.scoring_method)+'</td></tr>').join('') +
+    criticalFactors.map(factor => '<tr><td><input class="row-check" data-factor-include="'+h(factor.id)+'" type="checkbox" '+(factor.include_in_survey ? 'checked' : '')+' /></td><td>'+h(dimensionLabel(factor.dimension))+'</td><td><strong>'+explainTerms(factor.factor_name)+'</strong></td><td>'+explainTerms(factor.description)+'</td><td>'+explainTerms(factor.literature_source)+'</td><td>'+explainTerms(factor.data_indicator)+'</td><td>'+explainTerms(factor.scoring_method)+'</td></tr>').join('') +
     '</tbody>';
   document.querySelectorAll('[data-factor-include]').forEach(input => input.onchange = e => {
     const factor = criticalFactors.find(item => item.id === e.target.dataset.factorInclude);
@@ -536,7 +547,7 @@ function renderSurveyCriteria() {
   document.getElementById('surveyCriteriaList').innerHTML =
     '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+'</div>' +
     selected.map(factor =>
-    '<div class="criteria-card survey-slider-card"><header><strong>'+h(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p class="factor-explanation">'+h(surveyExplanation(factor))+'</p><p class="survey-prompt"><strong>What participants rate:</strong> '+h(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
+    '<div class="criteria-card survey-slider-card"><header><strong>'+explainTerms(factor.factor_name)+'</strong><span>'+h(dimensionLabel(factor.dimension))+'</span></header><p class="factor-explanation">'+explainTerms(surveyExplanation(factor))+'</p><p class="survey-prompt"><strong>What participants rate:</strong> '+explainTerms(surveyQuestion(factor))+'</p><label class="slider-question"><span>Importance score <strong id="surveyValue-'+h(factor.id)+'">'+h(surveyRating(factor.id))+'</strong></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(surveyRating(factor.id))+'" /></label><div class="slider-scale"><span>Not important</span><span>Moderately important</span><span>Very important</span></div></div>'
   ).join('');
   const participantGroup = document.getElementById('surveyParticipantGroup');
   participantGroup.value = state.participantGroup;
@@ -833,7 +844,7 @@ function renderMap(rows, selected) {
       updateMainOzpOverlay();
     }, 0);
     if (!document.querySelector('#mapPanel .map-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>OZP residential</span></div>');
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>'+explainTerms('OZP')+' residential</span></div>');
     }
     if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
     return;
@@ -862,9 +873,12 @@ function renderMapLayerControls(el) {
       ['catchment', '500 m catchment'],
       ['facilities', 'Community facilities'],
       ['mtr', 'MTR stations'],
-      ['ozp', 'OZP residential zones']
+      ['ozp', explainTerms('OZP')+' residential zones']
     ];
-    el.insertAdjacentHTML('beforeend', '<div class="layer-control"><strong>Map layers</strong>'+controls.map(([key,label]) => '<label><input data-map-layer="'+h(key)+'" type="checkbox" '+(state.mapLayers[key] ? 'checked' : '')+' />'+h(label)+'</label>').join('')+'</div>');
+    el.insertAdjacentHTML('beforeend', '<div class="layer-control"><strong>Map layers</strong>'+controls.map(([key,label]) => {
+      const labelHtml = key === 'ozp' ? label : h(label);
+      return '<label><input data-map-layer="'+h(key)+'" type="checkbox" '+(state.mapLayers[key] ? 'checked' : '')+' />'+labelHtml+'</label>';
+    }).join('')+'</div>');
   }
   document.querySelectorAll('[data-map-layer]').forEach(input => {
     input.checked = !!state.mapLayers[input.dataset.mapLayer];
@@ -958,7 +972,7 @@ function renderWeights(selected) {
   const modelDimensions = activeDimensions();
   document.getElementById('weightSliders').innerHTML =
     '<div class="model-mode"><strong>'+h(state.modelMode === 'survey' ? 'Survey-derived eight-dimension model' : 'Baseline 11-factor model')+'</strong><span>'+h(state.modelMode === 'survey' ? 'Final weights from the research workflow are currently applied.' : 'Use Final Weights to apply survey-derived research weights.')+'</span></div>' +
-    modelDimensions.map(([key,label,desc], i) => '<div class="weight-row"><header><span>'+h(label)+'</span><span>'+Math.round(nw[i])+'%</span></header><p>'+h(desc)+'</p><input data-weight="'+i+'" type="range" min="0" max="35" value="'+state.weights[i]+'" /></div>').join('');
+    modelDimensions.map(([key,label,desc], i) => '<div class="weight-row"><header><span>'+h(label)+'</span><span>'+Math.round(nw[i])+'%</span></header><p>'+explainTerms(desc)+'</p><input data-weight="'+i+'" type="range" min="0" max="35" value="'+state.weights[i]+'" /></div>').join('');
   document.querySelectorAll('[data-weight]').forEach(input => input.oninput = e => {
     state.weights[Number(e.target.dataset.weight)] = Number(e.target.value);
     state.scenario = 'custom';

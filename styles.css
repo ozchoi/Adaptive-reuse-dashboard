@@ -32,6 +32,8 @@ label { display: grid; gap: 7px; margin: 0 0 14px; color: #475569; font-size: 13
 input, select { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; font: inherit; background: #fff; }
 input[type="range"] { padding: 0; accent-color: var(--teal); }
 input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); }
+.term-tip { border-bottom: 1px dotted var(--teal); color: #0f766e; cursor: help; font-weight: 800; }
+.term-tip:focus { outline: 2px solid #99f6e4; outline-offset: 2px; border-radius: 3px; }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .primary-button, .ghost-button, .scenario-list button, .tab { border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
 .primary-button { padding: 10px 14px; background: var(--teal); color: #fff; border-color: var(--teal); }
