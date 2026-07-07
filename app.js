@@ -213,11 +213,11 @@ const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.' };
+], surveyRatings: {}, surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'decision' };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
-const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626' };
+const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626', 'Lower conversion priority': '#dc2626' };
 const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706', '#64748b'];
 const fmt = new Intl.NumberFormat('en-HK');
@@ -508,9 +508,69 @@ function score(building, weights = state.weights, modelMode = state.modelMode) {
   const nw = normalisedWeights(weights);
   return Math.round(modelDimensions.reduce((sum, [key], i) => sum + building[key] * nw[i] / 100, 0));
 }
-function category(s) { return s >= 70 ? 'High' : s >= 40 ? 'Medium' : 'Low'; }
+function category(s) { return s >= 70 ? 'High' : s >= 40 ? 'Medium' : 'Lower conversion priority'; }
 function scored(weights = state.weights, modelMode = state.modelMode) { return buildings.map(b => ({...b, score: score(b, weights, modelMode), category: category(score(b, weights, modelMode))})).sort((a,b)=>b.score-a.score); }
 function filtered() { const q = state.filters.search.toLowerCase(); return scored().filter(b => (!q || [b.id,b.name,b.address,b.district].join(' ').toLowerCase().includes(q)) && (state.filters.district === 'All' || b.district === state.filters.district) && (state.filters.zoning === 'All' || b.zoning === state.filters.zoning) && (state.filters.ownership === 'All' || b.ownership === state.filters.ownership) && (state.filters.risk === 'All' || b.risk === state.filters.risk) && (state.filters.compatibility === 'All' || b.compatibility === state.filters.compatibility) && b.score >= state.filters.minScore && b.vacancy >= state.filters.minVacancy && b.age <= state.filters.maxAge && b.height <= state.filters.maxHeight && b.storeys <= state.filters.maxStoreys && b.mtr <= state.filters.maxMtr); }
+function categoryLabel(value) {
+  return value === 'High' ? 'High indicative suitability' : value === 'Medium' ? 'Medium indicative suitability' : 'Lower conversion priority';
+}
+function visibleBuildings() { return filtered(); }
+function highPotentialBuildings(rows = visibleBuildings()) { return rows.filter(b => b.score >= 70); }
+function averageScore(rows = visibleBuildings()) { return rows.length ? Math.round(mean(rows.map(b => b.score))) : 0; }
+function topRankedBuilding(rows = visibleBuildings()) { return rows.slice().sort((a,b)=>b.score-a.score)[0] || null; }
+function factorContributionRows(building, weights = state.weights, modelMode = state.modelMode) {
+  const modelDimensions = modelMode === 'survey' ? researchDimensions : dimensions;
+  const nw = normalisedWeights(weights);
+  return modelDimensions.map(([key,label,desc], i) => ({
+    key,
+    label,
+    desc,
+    score: Number(building[key] ?? 0),
+    weight: nw[i] || 0,
+    contribution: Number(building[key] ?? 0) * (nw[i] || 0) / 100
+  })).sort((a,b)=>b.contribution-a.contribution);
+}
+function factorInterpretation(scoreValue) {
+  if (scoreValue >= 80) return 'Strong support';
+  if (scoreValue >= 65) return 'Moderate support';
+  if (scoreValue >= 50) return 'Needs verification';
+  return 'Potential constraint';
+}
+function mainPlanningImplication(rows) {
+  if (!rows.length) return 'No buildings match the current filters, so the screening assumptions should be broadened or checked.';
+  const top = topRankedBuilding(rows);
+  if (highPotentialBuildings(rows).length) return 'Prioritise detailed feasibility review for high-scoring candidates, especially ' + top.name + ', before any statutory or lease conclusions are drawn.';
+  return 'The current filter set does not identify a high-potential pilot candidate; consider revisiting assumptions, data quality or policy support requirements.';
+}
+function ownershipRisk(building) {
+  return building.ownership === 'Multiple owners' ? 'High risk' : building.ownership === 'Single owner' || building.ownership === 'Corporate owner' ? 'Partial' : 'Unknown';
+}
+function statusBadge(status) {
+  const cls = status.toLowerCase().replaceAll(' ', '-');
+  return '<span class="status-badge '+h(cls)+'">'+h(status)+'</span>';
+}
+function regulatoryChecklist(building) {
+  const isResidential = building.zoning.includes('Residential');
+  const isBusiness = building.zoning.includes('Other Specified Uses');
+  return [
+    ['OZP / zoning check', isResidential ? 'Complete' : isBusiness ? 'Partial' : 'High risk', building.zoning],
+    ['Town Planning Board route: S.16 or S.12A may be required', isResidential ? 'Partial' : 'Pending', isResidential ? 'Residential zoning indicated, but route still requires confirmation.' : 'Planning application or rezoning route may be required.'],
+    ['Land lease review', 'Pending', 'Lease conditions are not verified in the sample dataset.'],
+    ['Lease modification / waiver / premium uncertainty', isResidential ? 'Partial' : 'Unknown', building.constraints],
+    ['Building Ordinance compliance', building.age > 55 ? 'High risk' : 'Pending', building.age + ' years old'],
+    ['Fire safety and means of escape', building.safety >= 70 ? 'Partial' : 'High risk', 'Indicative safety score ' + building.safety],
+    ['Natural lighting and ventilation', building.design >= 70 ? 'Partial' : 'Pending', 'Indicative design adaptability score ' + building.design],
+    ['Barrier-free access', building.services >= 70 ? 'Partial' : 'Pending', 'Services and vertical circulation require audit.'],
+    ['Environmental compatibility', building.risk === 'Low' ? 'Partial' : building.risk === 'High' ? 'High risk' : 'Pending', building.risk + ' environmental risk'],
+    ['Noise / air quality / industrial interface screening', building.compatibility === 'High' ? 'Partial' : building.compatibility === 'Low' ? 'High risk' : 'Pending', building.compatibility + ' residential compatibility'],
+    ['Cost feasibility study', building.economic >= 70 ? 'Partial' : 'Pending', 'Indicative economic viability score ' + building.economic]
+  ];
+}
+function nextStepFor(building) {
+  if (building.score >= 70) return 'Conduct a detailed feasibility and regulatory pathway review, including OZP, lease, fire safety, environmental and cost checks.';
+  if (building.score >= 55) return 'Clarify the main weak factors through site inspection and ownership, lease and building-services verification.';
+  return 'Treat as a lower-priority candidate unless policy support, ownership assembly or technical constraints materially change.';
+}
 function baselineRows() {
   const f = state.baselineFilters;
   return scored().filter(b =>
@@ -571,10 +631,22 @@ function activateTab(tabName) {
 function updateSurveyResultAccess() {
   const resultTab = document.querySelector('.tab[data-tab="survey-results"]');
   if (!resultTab) return;
-  resultTab.hidden = !state.surveyResultsUnlocked;
+  const modeHidden = resultTab.dataset.mode !== state.viewMode;
+  resultTab.hidden = modeHidden || !state.surveyResultsUnlocked;
   resultTab.disabled = !state.surveyResultsUnlocked;
   resultTab.setAttribute('aria-hidden', String(!state.surveyResultsUnlocked));
   if (!state.surveyResultsUnlocked && document.getElementById('survey-results')?.classList.contains('active')) activateTab('survey');
+}
+function updateViewModeTabs() {
+  document.querySelectorAll('[data-view-mode]').forEach(button => {
+    button.classList.toggle('active', button.dataset.viewMode === state.viewMode);
+  });
+  document.querySelectorAll('.tab[data-mode]').forEach(tab => {
+    tab.hidden = tab.dataset.mode !== state.viewMode;
+  });
+  updateSurveyResultAccess();
+  const activeTab = document.querySelector('.tab.active');
+  if (!activeTab || activeTab.hidden) activateTab(state.viewMode === 'decision' ? 'overview' : 'factors');
 }
 function radarPoint(index, total, radius, value = 100) {
   const angle = -Math.PI / 2 + index * Math.PI * 2 / total;
@@ -613,7 +685,7 @@ function renderRadar(selected) {
   }).join('');
   const legend = series.map((building, i) => '<span><i style="background:'+radarPalette[i]+'"></i>'+h(building.id === 'AVG' ? 'Average baseline' : building.id + ' ' + building.name)+' <strong>'+h(building.score)+'</strong></span>').join('');
   document.getElementById('radarChart').innerHTML =
-    '<div class="radar-summary"><span>Selected building</span><strong>'+h(selected.score)+'</strong><em>'+h(selected.name)+' - '+h(selected.category)+' suitability</em></div>' +
+    '<div class="radar-summary"><span>Selected building</span><strong>'+h(selected.score)+'</strong><em>'+h(selected.name)+' - '+h(categoryLabel(selected.category))+'</em></div>' +
     '<div class="radar-summary baseline-summary"><span>Baseline average</span><strong>'+h(baselineAverage ? baselineAverage.score : '- ')+'</strong><em>'+h(baselineDescription(baselineSet))+'</em></div>' +
     '<div class="radar-legend">'+legend+'</div>' +
     '<svg class="radar-svg" viewBox="-220 -205 440 430" role="img" aria-label="Radar chart for '+h(selected.name)+' residential conversion suitability">' +
@@ -621,25 +693,37 @@ function renderRadar(selected) {
     '</svg>' +
     '<div class="radar-note">The grey polygon is the average profile for buildings matching the baseline conditions. Use the filters above to compare against a more specific peer group.</div>';
 }
+function renderExecutiveInsight(rows) {
+  const el = document.getElementById('executiveInsight');
+  if (!el) return;
+  const high = highPotentialBuildings(rows);
+  const avg = averageScore(rows);
+  const top = topRankedBuilding(rows);
+  el.innerHTML = top
+    ? '<h2>Key Planning Insight</h2><p>The current model identifies <strong>'+h(high.length)+'</strong> high-potential industrial building'+(high.length === 1 ? '' : 's')+' for residential adaptive reuse among the visible records. The strongest candidates combine good transport accessibility, compatible planning context, manageable ownership structure and strong housing demand.</p><div class="insight-metrics"><span><em>Average indicative score</em><strong>'+h(avg)+'</strong></span><span><em>Top-ranked building</em><strong>'+h(top.name)+'</strong></span></div><p><strong>Main planning implication:</strong> '+h(mainPlanningImplication(rows))+'</p><small>Scores are indicative and intended for early-stage screening only.</small>'
+    : '<h2>Key Planning Insight</h2><p>No buildings match the current filters. Broaden the filters or check the input assumptions before drawing planning conclusions.</p><small>Scores are indicative and intended for early-stage screening only.</small>';
+}
 function render() {
   const rows = filtered();
   const all = scored();
   const selected = all.find(b => b.id === state.selected) || all[0];
+  renderExecutiveInsight(rows);
   renderFilterSummary(rows.length, all.length);
   document.getElementById('kpis').innerHTML = [
     ['Buildings', all.length],
     ['Visible now', rows.length],
-    ['Average age', Math.round(buildings.reduce((s,b)=>s+b.age,0)/buildings.length)+' yrs'],
-    ['GFA Gross Floor Area', fmt.format(buildings.reduce((s,b)=>s+b.floorArea,0))+' sqm'],
-    ['High potential', all.filter(b=>b.category==='High').length]
+    ['Average indicative score', rows.length ? averageScore(rows) : 'No data'],
+    ['GFA Gross Floor Area', fmt.format(rows.reduce((s,b)=>s+b.floorArea,0))+' sqm'],
+    ['High potential', highPotentialBuildings(rows).length]
   ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   const cat = document.getElementById('categoryChart'); cat.innerHTML = '';
-  ['High','Medium','Low'].forEach(c => bar(cat, c, all.filter(b=>b.category===c).length, all.length, categoryColor[c]));
+  ['High','Medium','Lower conversion priority'].forEach(c => bar(cat, categoryLabel(c), rows.filter(b=>b.category===c).length, rows.length || 1, categoryColor[c]));
   const district = document.getElementById('districtChart'); district.innerHTML = '';
-  [...new Set(buildings.map(b=>b.district))].map(d => {
-    const ds = all.filter(b=>b.district===d);
+  [...new Set(rows.map(b=>b.district))].map(d => {
+    const ds = rows.filter(b=>b.district===d);
     return [d, Math.round(ds.reduce((s,b)=>s+b.score,0)/ds.length)];
   }).sort((a,b)=>b[1]-a[1]).forEach(([d,v]) => bar(district, d, v, 100, '#2563eb'));
+  if (!rows.length) empty(district, 'No district results match the current filters.');
   const top = document.getElementById('topChart'); top.innerHTML = '';
   if (rows.length) rows.slice(0,8).forEach(b => bar(top, b.id + ' ' + b.name, b.score, 100, categoryColor[b.category]));
   else empty(top, 'No buildings match the current filters.');
@@ -649,6 +733,7 @@ function render() {
   renderWeights(selected);
   renderScenarios();
   renderResearchWorkflow();
+  updateViewModeTabs();
 }
 function renderResearchWorkflow() {
   renderFactorsLibrary();
@@ -967,7 +1052,7 @@ function renderMap(rows, selected) {
           weight: b.id === selected.id ? 3 : 2,
           fillColor: categoryColor[b.category],
           fillOpacity: 0.88
-        }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Score: '+h(b.score)+'<br>'+h(b.category)+' suitability');
+        }).bindPopup('<strong>'+h(b.name)+'</strong>'+h(b.district)+'<br>Indicative score: '+h(b.score)+'<br>'+h(categoryLabel(b.category)));
         marker.on('click', () => { state.selected = b.id; render(); });
         marker.addTo(mapLayerGroups.buildings);
         if (b.id === selected.id) marker.openPopup();
@@ -1001,7 +1086,7 @@ function renderMap(rows, selected) {
       updateMainOzpOverlay();
     }, 0);
     if (!document.querySelector('#mapPanel .map-legend')) {
-      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>'+explainTerms('OZP')+' residential</span></div>');
+      el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Lower conversion priority'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+h(categoryLabel(c))+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>'+explainTerms('OZP')+' residential</span></div>');
     }
     if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
     return;
@@ -1015,13 +1100,13 @@ function renderMap(rows, selected) {
     const m = document.createElement('button');
     m.className = 'marker' + (b.id === selected.id ? ' selected' : '');
     m.style.cssText = 'left:'+left+'%;top:'+top+'%;width:'+size+'px;height:'+size+'px;background:'+categoryColor[b.category];
-    m.title = b.name + ': ' + b.score;
-    m.setAttribute('aria-label', b.name + ', suitability score ' + b.score);
+    m.title = b.name + ': indicative score ' + b.score;
+    m.setAttribute('aria-label', b.name + ', indicative suitability score ' + b.score);
     m.onclick = () => { state.selected = b.id; render(); };
     el.appendChild(m);
   });
   if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
-  el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Low'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+c+'</span>').join('')+'</div>');
+  el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Lower conversion priority'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+h(categoryLabel(c))+'</span>').join('')+'</div>');
 }
 function renderMapLayerControls(el) {
   if (!document.querySelector('#mapPanel .layer-control')) {
@@ -1091,22 +1176,32 @@ function renderProfile(b) {
   const catchment = catchmentFor(b);
   const summary = catchmentSummary(catchment);
   const nearestStation = catchment.find(item => item.type === 'MTR');
+  const factors = factorContributionRows(b);
+  const strongest = factors.slice(0, 3);
+  const weakest = factors.slice().sort((a,b)=>a.contribution-b.contribution).slice(0, 3);
+  const mainStrength = strongest[0];
+  const mainConstraint = weakest[0];
+  const factorTable = items => '<div class="score-factor-list">'+items.map(item => '<div><span>'+h(item.label)+'</span><strong>'+h(item.score)+'</strong><em>'+h(Math.round(item.weight))+'% weight · '+h(factorInterpretation(item.score))+'</em></div>').join('')+'</div>';
+  const checklistRows = regulatoryChecklist(b).map(([item,status,note]) => '<tr><td>'+h(item)+'</td><td>'+statusBadge(status)+'</td><td>'+h(note)+'</td></tr>').join('');
   const catchmentList = catchment.length
     ? '<ul class="catchment-list">'+catchment.map(item => '<li><span class="catchment-dot" style="background:'+facilityColor[item.type]+'"></span><strong>'+h(item.name)+'</strong><em>'+h(item.type)+' · '+h(item.distance)+' m</em></li>').join('')+'</ul>'
     : '<p class="muted-note">No listed community facilities or MTR stations fall inside the 500 m catchment.</p>';
   document.getElementById('buildingProfile').innerHTML =
-    '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+' suitability</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
+    '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(categoryLabel(b.category))+'</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
     '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>Storeys</dt><dd>'+h(b.storeys)+'</dd></div><div><dt>Building height</dt><dd>'+h(b.height)+' m</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
+    '<section class="score-explain"><h3>Why this score?</h3><p>This building has an <strong>Indicative Suitability Score of '+h(b.score)+'/100</strong>. It scores strongly because of '+h(mainStrength.label.toLowerCase())+', while its main constraint is '+h(mainConstraint.label.toLowerCase())+'. This is a screening result only and does not represent statutory approval.</p><h4>Top 3 strongest factors</h4>'+factorTable(strongest)+'<h4>Bottom 3 weakest factors</h4>'+factorTable(weakest)+'<dl><div><dt>Main strength</dt><dd>'+h(mainStrength.label)+' ('+h(mainStrength.score)+')</dd></div><div><dt>Main constraint</dt><dd>'+h(mainConstraint.label)+' ('+h(mainConstraint.score)+')</dd></div></dl><p><strong>Recommended next step:</strong> '+h(nextStepFor(b))+'</p></section>' +
+    '<section class="pathway-checklist"><h3>Regulatory Pathway Checklist</h3><p class="muted-note">This checklist is indicative and does not replace statutory planning, lands, building control or environmental review.</p><div class="table-wrap compact-table"><table><thead><tr><th>Item</th><th>Status</th><th>Basis</th></tr></thead><tbody>'+checklistRows+'</tbody></table></div></section>' +
     '<h3>500 m community catchment</h3><p class="muted-note">Amenities shown on the GIS map inside the selected building radius.</p><dl>'+summary.map(([label,value]) => '<div><dt>'+h(label)+'</dt><dd>'+h(value)+'</dd></div>').join('')+'<div><dt>Nearest MTR</dt><dd>'+h(nearestStation ? nearestStation.name + ' (' + nearestStation.distance + ' m)' : 'None within 500 m')+'</dd></div></dl>'+catchmentList +
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
 }
 function renderTable(rows) {
   const factorColumns = activeDimensions().map(([key,label]) => [key, label]);
   const columns = [
-    ['id','ID'], ['name','Building'], ['district','District'], ['year','Year'], ['age','Age'], ['zoning','Zoning'], ['ownership','Ownership'], ['vacancy','Vacancy'], ['mtr','MTR'], ...factorColumns, ['score','Overall'], ['category','Category']
+    ['id','ID'], ['name','Building'], ['district','District'], ['year','Year'], ['age','Age'], ['zoning','Zoning'], ['ownership','Ownership'], ['vacancy','Vacancy'], ['mtr','MTR'], ...factorColumns, ['score','Indicative Suitability Score'], ['category','Category']
   ];
   const ordered = sortedRows(rows);
   document.getElementById('tableMeta').textContent = ordered.length + ' ranked records | ' + activeDimensions().length + '-dimension critical factors model';
+  renderComparisonRecommendation(ordered);
   document.getElementById('comparisonTable').innerHTML =
     '<thead><tr>'+columns.map(([key,label]) => '<th><button data-sort="'+key+'">'+h(label)+(state.sort.key === key ? (state.sort.dir === 'asc' ? ' ^' : ' v') : '')+'</button></th>').join('')+'</tr></thead><tbody>'+
     ordered.map(b => {
@@ -1114,7 +1209,7 @@ function renderTable(rows) {
         const value = key === 'vacancy' ? b.vacancy + '%' : key === 'mtr' ? b.mtr + ' m' : b[key];
         return '<td>'+h(value)+'</td>';
       });
-      cells.push('<td><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(b.category)+'</span></td>');
+      cells.push('<td><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(categoryLabel(b.category))+'</span></td>');
       return '<tr data-id="'+h(b.id)+'" class="'+(b.id === state.selected ? 'selected-row' : '')+'">'+cells.join('')+'</tr>';
     }).join('')+'</tbody>';
   document.querySelectorAll('[data-sort]').forEach(btn => btn.onclick = () => {
@@ -1124,11 +1219,27 @@ function renderTable(rows) {
   });
   document.querySelectorAll('#comparisonTable tbody tr').forEach(row => row.onclick = () => { state.selected = row.dataset.id; render(); });
 }
+function renderComparisonRecommendation(rows) {
+  const el = document.getElementById('comparisonRecommendation');
+  if (!el) return;
+  const selectedIds = [state.selected, ...state.compare].filter(Boolean);
+  const pool = rows.filter(b => selectedIds.includes(b.id));
+  const candidates = pool.length > 1 ? pool : rows.slice(0, 3);
+  const best = topRankedBuilding(candidates);
+  if (!best) {
+    el.innerHTML = '<strong>Recommendation</strong><p>No buildings match the current filters. Broaden the filters before selecting a near-term pilot candidate.</p>';
+    return;
+  }
+  const factors = factorContributionRows(best);
+  const reason = factors.slice(0, 2).map(f => f.label.toLowerCase()).join(' and ');
+  const caveat = factors.slice().sort((a,b)=>a.contribution-b.contribution)[0];
+  el.innerHTML = '<strong>Recommendation</strong><p>'+h(best.name)+' is the strongest near-term pilot candidate among the current comparison set because it combines an indicative suitability score of '+h(best.score)+'/100 with '+h(reason)+'. The main caveat is '+h(caveat.label.toLowerCase())+', which should be verified before any implementation decision.</p><p><strong>Suggested next action:</strong> '+h(nextStepFor(best))+'</p>';
+}
 function renderWeights(selected) {
   const nw = normalisedWeights(state.weights);
   const modelDimensions = activeDimensions();
   document.getElementById('weightSliders').innerHTML =
-    '<div class="model-mode"><strong>'+h(state.modelMode === 'survey' ? 'Survey-derived eight-dimension model' : 'Baseline 11-factor model')+'</strong><span>'+h(state.modelMode === 'survey' ? 'Final weights from the research workflow are currently applied.' : 'Use Final Weights to apply survey-derived research weights.')+'</span></div>' +
+    '<div class="model-mode"><strong>'+h(state.modelMode === 'survey' ? 'Survey-derived eight-dimension model' : 'Baseline 11-factor model')+'</strong><span>'+h(state.modelMode === 'survey' ? 'Pilot-derived weights from the research workflow are currently applied.' : 'Use Model Weights to apply survey-derived research weights.')+'</span></div>' +
     modelDimensions.map(([key,label,desc], i) => '<div class="weight-row"><header><span>'+h(label)+'</span><span>'+Math.round(nw[i])+'%</span></header><p>'+explainTerms(desc)+'</p><input data-weight="'+i+'" type="range" min="0" max="35" value="'+state.weights[i]+'" /></div>').join('');
   document.querySelectorAll('[data-weight]').forEach(input => input.oninput = e => {
     state.weights[Number(e.target.dataset.weight)] = Number(e.target.value);
@@ -1186,6 +1297,40 @@ function renderScenarios() {
     return '<div class="scenario-card '+(k === state.scenario ? 'active' : '')+'"><h3>'+h(s.label)+'</h3><p>'+h(s.summary)+'</p><div class="scenario-emphasis"><span>Survey-derived higher emphasis</span>'+emphasis.map(f => '<strong>'+h(f.label)+' '+h(f.weight)+'%</strong>').join('')+'</div><ol>'+r.map(b=>'<li>'+h(b.name)+' <strong>'+h(b.score)+'</strong></li>').join('')+'</ol></div>';
   }).join('');
   document.querySelectorAll('#scenarioButtons button').forEach(btn => btn.classList.toggle('active', btn.dataset.scenario === state.scenario));
+  renderScenarioRankTable();
+}
+function scenarioRankMap(key) {
+  return Object.fromEntries(scored(scenarioWeights(key), 'survey').map((building, index) => [building.id, index + 1]));
+}
+function scenarioInterpretation(row) {
+  if (row.biggestChange <= 2 && Math.max(...row.ranks) <= 5) return 'Robust candidate across scenarios';
+  if (row.housing < row.baseline) return 'Strong under housing-priority assumptions';
+  if (row.policy < row.baseline || row.biggestChange >= 5) return 'Sensitive to policy-feasibility weighting';
+  if (Math.min(...row.ranks) > 6) return 'Lower priority across most scenarios';
+  return 'Moderately sensitive to assumptions';
+}
+function renderScenarioRankTable() {
+  const table = document.getElementById('scenarioRankTable');
+  if (!table) return;
+  const keys = ['balanced','housing','policy','market','community'];
+  const maps = Object.fromEntries(keys.map(key => [key, scenarioRankMap(key)]));
+  const rows = buildings.map(building => {
+    const ranks = keys.map(key => maps[key][building.id]);
+    return {
+      building,
+      baseline: ranks[0],
+      housing: ranks[1],
+      policy: ranks[2],
+      market: ranks[3],
+      community: ranks[4],
+      ranks,
+      biggestChange: Math.max(...ranks) - Math.min(...ranks)
+    };
+  }).sort((a,b)=>a.baseline-b.baseline);
+  table.innerHTML =
+    '<thead><tr><th>Building</th><th>Baseline rank</th><th>Housing priority</th><th>Policy feasibility</th><th>Market driven</th><th>Community impact</th><th>Biggest rank change</th><th>Interpretation</th></tr></thead><tbody>' +
+    rows.map(row => '<tr><td><strong>'+h(row.building.name)+'</strong></td><td>'+h(row.baseline)+'</td><td>'+h(row.housing)+'</td><td>'+h(row.policy)+'</td><td>'+h(row.market)+'</td><td>'+h(row.community)+'</td><td>'+h(row.biggestChange)+'</td><td>'+h(scenarioInterpretation(row))+'</td></tr>').join('') +
+    '</tbody>';
 }
 function syncFilterControls() {
   Object.entries(state.filters).forEach(([key,value]) => {
@@ -1219,6 +1364,10 @@ function init() {
     render();
   });
   document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => activateTab(tab.dataset.tab));
+  document.querySelectorAll('[data-view-mode]').forEach(button => button.onclick = () => {
+    state.viewMode = button.dataset.viewMode;
+    updateViewModeTabs();
+  });
   ['search','district','zoning','ownership','risk','compatibility'].forEach(id => document.getElementById(id).oninput = e => { state.filters[id] = e.target.value; render(); });
   [['minScore','minScoreValue'],['minVacancy','minVacancyValue'],['maxAge','maxAgeValue'],['maxHeight','maxHeightValue'],['maxStoreys','maxStoreysValue'],['maxMtr','maxMtrValue']].forEach(([id,out]) => document.getElementById(id).oninput = e => { state.filters[id] = Number(e.target.value); document.getElementById(out).textContent = e.target.value; render(); });
   document.getElementById('resetFilters').onclick = () => { state.filters = {...defaultFilters}; syncFilterControls(); render(); };
@@ -1278,7 +1427,7 @@ async function addStakeholderFactor() {
 function exportCsv() {
   const modelDimensions = activeDimensions();
   const factorHeaders = modelDimensions.map(([key]) => key);
-  const headers = ['building_id','building_name','district','address','existing_zoning','ownership_type','distance_to_mtr_m',...factorHeaders,'overall_suitability_score','suitability_category','main_constraints','main_opportunities'];
+  const headers = ['building_id','building_name','district','address','existing_zoning','ownership_type','distance_to_mtr_m',...factorHeaders,'indicative_suitability_score','indicative_category','main_constraints','main_opportunities'];
   const rows = filtered().map(b => [b.id,b.name,b.district,b.address,b.zoning,b.ownership,b.mtr,...modelDimensions.map(([key]) => b[key]),b.score,b.category,b.constraints,b.opportunities]);
   downloadCsv('adaptive-reuse-ranked-buildings.csv', headers, rows);
 }

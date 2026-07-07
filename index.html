@@ -46,20 +46,34 @@
     </aside>
 
     <section class="content">
+      <div class="view-mode-toggle" aria-label="View mode">
+        <span>View mode</span>
+        <button class="active" data-view-mode="decision" type="button">Decision Dashboard</button>
+        <button data-view-mode="research" type="button">Research Workflow</button>
+      </div>
       <nav class="tabs" aria-label="Dashboard tabs">
-        <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="factors">Critical Factors</button>
-        <button class="tab" data-tab="survey">Survey Criteria</button>
-        <button class="tab" data-tab="stakeholders">Stakeholder Input</button>
-        <button class="tab" data-tab="survey-results">Survey Result Summary</button>
-        <button class="tab" data-tab="weighted">Final Weights</button>
-        <button class="tab" data-tab="map">GIS Map</button>
-        <button class="tab" data-tab="comparison">Comparison</button>
-        <button class="tab" data-tab="scoring">Scoring Model</button>
-        <button class="tab" data-tab="scenarios">Scenario Analysis</button>
+        <button class="tab active" data-tab="overview" data-mode="decision">Portfolio Overview</button>
+        <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
+        <button class="tab" data-tab="survey" data-mode="research">Stakeholder Survey Setup</button>
+        <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
+        <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
+        <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
+        <button class="tab" data-tab="map" data-mode="decision">Suitability Map</button>
+        <button class="tab" data-tab="comparison" data-mode="decision">Building Comparison</button>
+        <button class="tab" data-tab="scoring" data-mode="decision">Score Breakdown</button>
+        <button class="tab" data-tab="scenarios" data-mode="decision">Policy Scenario Analysis</button>
       </nav>
 
       <section id="overview" class="tab-panel active">
+        <div class="overview-topline">
+          <article id="executiveInsight" class="panel insight-card"></article>
+          <article class="panel assumption-card">
+            <h2>Prototype Status</h2>
+            <p><strong>Model status:</strong> Prototype using sample or illustrative building data unless verified datasets have been loaded.</p>
+            <p><strong>Purpose:</strong> Early-stage screening and decision support, not statutory approval.</p>
+            <p><strong>Next step:</strong> Replace sample values with verified building survey, OZP, lease, ownership, fire safety and environmental data.</p>
+          </article>
+        </div>
         <div id="kpis" class="kpi-grid"></div>
         <div class="grid two">
           <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>
@@ -71,7 +85,7 @@
       <section id="factors" class="tab-panel">
         <article class="panel">
           <div class="panel-heading">
-            <h2>Critical Factors Library</h2>
+            <h2>Assessment Factors Library</h2>
             <p id="factorMeta"></p>
           </div>
           <div id="factorDimensionSummary" class="dimension-summary"></div>
@@ -121,7 +135,7 @@
       <section id="survey-results" class="tab-panel">
         <article class="panel">
           <div class="panel-heading">
-            <h2>Survey Result Summary</h2>
+            <h2>Pilot Survey Results</h2>
           </div>
           <p class="map-note">Summary of the current pilot survey dataset used to derive the eight-dimension factor weighting. Filter by stakeholder group to compare response patterns.</p>
           <div id="surveyResultKpis" class="kpi-grid compact"></div>
@@ -159,7 +173,7 @@
       <section id="map" class="tab-panel">
         <div class="grid map-grid">
           <article class="panel">
-            <h2>GIS Map</h2>
+            <h2>Suitability Map</h2>
             <p class="map-note">Combined building suitability, 500 m community catchment, MTR access and official <span class="term-tip" tabindex="0" title="Outline Zoning Plan: a statutory town plan in Hong Kong that shows land-use zones, planning intentions and development restrictions.">OZP</span> residential zoning layers.</p>
             <div id="mapPanel" class="map-panel"></div>
           </article>
@@ -173,13 +187,18 @@
             <h2>Building Comparison Table</h2>
             <p id="tableMeta"></p>
           </div>
+          <div id="comparisonRecommendation" class="recommendation-card"></div>
           <div class="table-wrap"><table id="comparisonTable"></table></div>
         </article>
       </section>
 
       <section id="scoring" class="tab-panel">
+        <article class="panel assumption-card">
+          <h2>Model Assumptions</h2>
+          <p>Scores are indicative suitability scores from 0-100 for early-stage screening only. High-scoring buildings still require site inspection, statutory planning review, lease assessment, fire safety audit, environmental screening and cost feasibility study.</p>
+        </article>
         <div class="grid scoring-grid">
-          <article class="panel"><h2>Weighted Scoring Model</h2><div id="weightSliders"></div></article>
+          <article class="panel"><h2>Score Breakdown Model</h2><div id="weightSliders"></div></article>
           <article class="panel">
             <h2>Building Index Comparison</h2>
             <div class="compare-controls">
@@ -194,6 +213,13 @@
 
       <section id="scenarios" class="tab-panel">
         <article class="panel"><h2>Scenario Ranking Comparison</h2><div id="scenarioComparison" class="scenario-cards"></div></article>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Scenario Ranking Change</h2>
+            <p>Buildings that remain highly ranked across multiple scenarios are stronger candidates for near-term pilot studies. Buildings with large ranking changes are more sensitive to policy assumptions.</p>
+          </div>
+          <div class="table-wrap"><table id="scenarioRankTable"></table></div>
+        </article>
       </section>
     </section>
   </main>
