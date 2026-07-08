@@ -149,6 +149,23 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .criteria-card header, .diff-card header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
 .criteria-card header span, .diff-card header span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .criteria-card p, .survey-question p { margin: 0; color: #334155; line-height: 1.5; }
+.factor-selection-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.selection-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.selection-heading strong { color: var(--ink); }
+.selection-heading span { color: var(--teal); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+.factor-matrix-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.factor-matrix { width: 1500px; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+.factor-matrix th { position: sticky; top: 0; z-index: 1; text-align: center; white-space: normal; }
+.factor-matrix td { vertical-align: top; padding: 7px; }
+.factor-matrix td, .factor-matrix th { border-right: 1px solid #eef2f7; }
+.factor-matrix td:last-child, .factor-matrix th:last-child { border-right: 0; }
+.factor-matrix button { display: grid; gap: 5px; width: 100%; min-height: 112px; border: 1px solid var(--line); border-radius: 7px; padding: 9px; background: #f8fafc; color: #334155; font: inherit; text-align: left; cursor: pointer; }
+.factor-matrix button:hover { border-color: #99f6e4; background: #f0fdfa; }
+.factor-matrix button.selected { border-color: var(--teal); background: var(--green-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--teal); }
+.factor-matrix button:disabled { cursor: not-allowed; opacity: 0.48; }
+.factor-matrix button strong { color: var(--ink); font-size: 12px; line-height: 1.3; }
+.factor-matrix button span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.empty-factor-cell { background: #f8fafc; }
 .survey-slider-card { gap: 10px; }
 .factor-explanation { padding: 10px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; font-size: 13px; }
 .survey-prompt { font-size: 13px; }
