@@ -10,9 +10,10 @@
 <body>
   <header class="app-header">
     <div>
-      <h1>Suitability Model for Industrial-to-Residential Adaptive Reuse in Hong Kong</h1>
-      <p class="lede">A weighted critical-factor decision-support dashboard for evaluating vacant industrial buildings in Hong Kong.</p>
-      <p class="credit">&copy; 2026 Chun Yin Choi. Dashboard developed for the research project “Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use in Hong Kong,” led by Prof. Ruffina Thilakaratne, Department of Architecture, Chu Hai College of Higher Education.</p>
+      <h1>Industrial-to-Residential Adaptive Reuse – Feasibility Study</h1>
+      <p class="lede">Shortage of affordable housing is an aggravating concern. Although, public and subsidized housing relieve the burden, the capacity and waiting times can be significant. Adaptive reuse of suitable structures is an effective mechanism for Hong Kong with limited land resources for providing adequate housing and community facilities. Many industrial buildings built in New Town districts are are now vacant. These are located within proximity to public transportation, community facilities and amenities enhancing their potential for residential use. 2009-2010 revitalization policy assessment have identified many industrial buildings that are suitable for repurposing. 
+This survey intends to gather responses from related stakeholders on the feasibility of converting “new industrial buildings” (post 1970s) to residential use. This survey is for academic research purposes and all information will be treated with confidentiality.</p>
+      <p class="credit">&copy; 2026 Chun Yin Oz Choi. Dashboard developed for the research project “Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use in Hong Kong,” led by Prof. Ruffina Thilakaratne, Department of Architecture, Chu Hai College of Higher Education.</p>
     </div>
     <div class="header-actions">
       <button id="resetFilters" class="ghost-button" type="button">Reset filters</button>
@@ -32,7 +33,10 @@
         <label>Environmental risk<select id="risk"></select></label>
         <label>Residential compatibility<select id="compatibility"></select></label>
         <label>Minimum score <span id="minScoreValue">0</span><input id="minScore" type="range" min="0" max="100" value="0" /></label>
+        <label>Minimum current vacancy <span id="minVacancyValue">0</span>%<input id="minVacancy" type="range" min="0" max="50" value="0" /></label>
         <label>Maximum age <span id="maxAgeValue">80</span><input id="maxAge" type="range" min="20" max="80" value="80" /></label>
+        <label>Maximum building height <span id="maxHeightValue">220</span> m<input id="maxHeight" type="range" min="40" max="220" value="220" /></label>
+        <label>Maximum storeys <span id="maxStoreysValue">60</span><input id="maxStoreys" type="range" min="10" max="60" value="60" /></label>
         <label>Maximum MTR distance <span id="maxMtrValue">1200</span> m<input id="maxMtr" type="range" min="250" max="1200" value="1200" /></label>
       </section>
 
@@ -43,15 +47,34 @@
     </aside>
 
     <section class="content">
+      <div class="view-mode-toggle" aria-label="View mode">
+        <span>View mode</span>
+        <button class="active" data-view-mode="decision" type="button">Decision Dashboard</button>
+        <button data-view-mode="research" type="button">Research Workflow</button>
+      </div>
       <nav class="tabs" aria-label="Dashboard tabs">
-        <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="map">GIS Map</button>
-        <button class="tab" data-tab="comparison">Comparison</button>
-        <button class="tab" data-tab="scoring">Scoring Model</button>
-        <button class="tab" data-tab="scenarios">Scenario Analysis</button>
+        <button class="tab active" data-tab="overview" data-mode="decision">Portfolio Overview</button>
+        <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
+        <button class="tab" data-tab="survey" data-mode="research">Stakeholder Survey Setup</button>
+        <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
+        <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
+        <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
+        <button class="tab" data-tab="map" data-mode="decision">Suitability Map</button>
+        <button class="tab" data-tab="comparison" data-mode="decision">Building Comparison</button>
+        <button class="tab" data-tab="scoring" data-mode="decision">Score Breakdown</button>
+        <button class="tab" data-tab="scenarios" data-mode="decision">Policy Scenario Analysis</button>
       </nav>
 
       <section id="overview" class="tab-panel active">
+        <div class="overview-topline">
+          <article id="executiveInsight" class="panel insight-card"></article>
+          <article class="panel assumption-card">
+            <h2>Prototype Status</h2>
+            <p><strong>Model status:</strong> Prototype using sample or illustrative building data unless verified datasets have been loaded.</p>
+            <p><strong>Purpose:</strong> Early-stage screening and decision support, not statutory approval.</p>
+            <p><strong>Next step:</strong> Replace sample values with verified building survey, OZP, lease, ownership, fire safety and environmental data.</p>
+          </article>
+        </div>
         <div id="kpis" class="kpi-grid"></div>
         <div class="grid two">
           <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>
@@ -60,9 +83,101 @@
         <article class="panel"><h2>Top-Ranked Buildings</h2><div id="topChart" class="bars wide"></div></article>
       </section>
 
+      <section id="factors" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Assessment Factors Library</h2>
+            <p id="factorMeta"></p>
+          </div>
+          <div id="factorDimensionSummary" class="dimension-summary"></div>
+          <div class="table-wrap research-table"><table id="factorsTable"></table></div>
+        </article>
+      </section>
+
+      <section id="survey" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Survey Instrument</h2>
+            </div>
+            <p class="map-note">First select up to 10 key factors from the dimension table, then rate only those selected factors with 0-100 sliders and rank the top three.</p>
+            <div id="surveyCriteriaList" class="criteria-list"></div>
+          </article>
+          <article class="panel">
+            <h2>Top 3 Factor Ranking</h2>
+            <div id="surveyPreview" class="survey-preview"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="stakeholders" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <h2>Stakeholder Suggested Factors</h2>
+            <div class="form-grid">
+              <label>Factor name<input id="stakeholderFactorName" type="text" placeholder="e.g. Lift core conversion risk" /></label>
+              <label>Suggested by<input id="stakeholderSuggestedBy" type="text" placeholder="Name or workshop code" /></label>
+              <label>Stakeholder group<select id="stakeholderGroup"></select></label>
+              <label>Related dimension<select id="stakeholderDimension"></select></label>
+              <label class="wide-field">Comment<input id="stakeholderComment" type="text" placeholder="Brief rationale or field observation" /></label>
+            </div>
+            <button id="addStakeholderFactor" class="primary-button" type="button">Add suggested factor</button>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Merged Factor Set</h2>
+              <p id="mergedFactorMeta"></p>
+            </div>
+            <div id="stakeholderFactorList" class="criteria-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="survey-results" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Pilot Survey Results</h2>
+          </div>
+          <p class="map-note">Summary of the current pilot survey dataset used to derive the eight-dimension factor weighting. Filter by stakeholder group to compare response patterns.</p>
+          <div id="surveyResultKpis" class="kpi-grid compact"></div>
+        </article>
+        <article class="panel"><h2>Factor Importance Scores</h2><div id="surveyFactorChart" class="bars wide"></div></article>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Ranked Factor Results</h2>
+            <p id="surveyResultMeta"></p>
+          </div>
+          <div class="table-wrap"><table id="surveyResultTable"></table></div>
+        </article>
+      </section>
+
+      <section id="weighted" class="tab-panel">
+        <div class="grid scoring-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Survey Weighting Results</h2>
+              <button id="applyFinalWeights" class="primary-button" type="button">Apply final weights</button>
+            </div>
+            <div id="weightingKpis" class="kpi-grid compact"></div>
+            <div id="finalWeightChart" class="bars wide"></div>
+          </article>
+          <article class="panel">
+            <h2>Stakeholder Group Differences</h2>
+            <div id="stakeholderWeightDistribution" class="stakeholder-weighting"></div>
+            <div id="stakeholderDifferences" class="group-diff"></div>
+            <h2>Workshop Validation</h2>
+            <div id="workshopValidation" class="validation-list"></div>
+          </article>
+        </div>
+      </section>
+
       <section id="map" class="tab-panel">
         <div class="grid map-grid">
-          <article class="panel"><h2>GIS Suitability Map</h2><div id="mapPanel" class="map-panel"></div></article>
+          <article class="panel">
+            <h2>Suitability Map</h2>
+            <p class="map-note">Combined building suitability, 500 m community catchment, MTR access and official <span class="term-tip" tabindex="0" title="Outline Zoning Plan: a statutory town plan in Hong Kong that shows land-use zones, planning intentions and development restrictions.">OZP</span> residential zoning layers.</p>
+            <div id="mapPanel" class="map-panel"></div>
+          </article>
           <article id="buildingProfile" class="panel"></article>
         </div>
       </section>
@@ -73,19 +188,25 @@
             <h2>Building Comparison Table</h2>
             <p id="tableMeta"></p>
           </div>
+          <div id="comparisonRecommendation" class="recommendation-card"></div>
           <div class="table-wrap"><table id="comparisonTable"></table></div>
         </article>
       </section>
 
       <section id="scoring" class="tab-panel">
+        <article class="panel assumption-card">
+          <h2>Model Assumptions</h2>
+          <p>Scores are indicative suitability scores from 0-100 for early-stage screening only. High-scoring buildings still require site inspection, statutory planning review, lease assessment, fire safety audit, environmental screening and cost feasibility study.</p>
+        </article>
         <div class="grid scoring-grid">
-          <article class="panel"><h2>Weighted Scoring Model</h2><div id="weightSliders"></div></article>
+          <article class="panel"><h2>Score Breakdown Model</h2><div id="weightSliders"></div></article>
           <article class="panel">
             <h2>Building Index Comparison</h2>
             <div class="compare-controls">
               <label>Compare with<select id="compareOne"></select></label>
               <label>Compare with<select id="compareTwo"></select></label>
             </div>
+            <div id="baselineControls" class="baseline-controls"></div>
             <div id="radarChart" class="radar"></div>
           </article>
         </div>
@@ -93,10 +214,18 @@
 
       <section id="scenarios" class="tab-panel">
         <article class="panel"><h2>Scenario Ranking Comparison</h2><div id="scenarioComparison" class="scenario-cards"></div></article>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Scenario Ranking Change</h2>
+            <p>Buildings that remain highly ranked across multiple scenarios are stronger candidates for near-term pilot studies. Buildings with large ranking changes are more sensitive to policy assumptions.</p>
+          </div>
+          <div class="table-wrap"><table id="scenarioRankTable"></table></div>
+        </article>
       </section>
     </section>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
