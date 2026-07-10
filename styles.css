@@ -144,12 +144,17 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .mini-distribution-bars div { height: 9px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
 .mini-distribution-bars i { display: block; height: 100%; min-width: 2px; border-radius: 999px; background: var(--teal); }
 .mini-distribution-bars em { color: var(--ink); font-size: 12px; font-style: normal; font-weight: 900; text-align: right; }
+.survey-layout { display: grid; gap: 16px; }
+.survey-instrument-panel, .survey-ranking-panel { width: 100%; }
 .criteria-list, .survey-preview, .group-diff, .validation-list { display: grid; gap: 10px; }
 .criteria-card, .survey-question, .diff-card, .validation-list div, .model-mode { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; }
 .criteria-card header, .diff-card header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
 .criteria-card header span, .diff-card header span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .criteria-card p, .survey-question p { margin: 0; color: #334155; line-height: 1.5; }
 .factor-selection-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.survey-instrument-panel .factor-selection-panel { width: 100%; }
+.survey-instrument-panel .factor-matrix { width: 100%; min-width: 1320px; }
+.survey-instrument-panel .factor-matrix-wrap { width: 100%; }
 .selection-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .selection-heading strong { color: var(--ink); }
 .selection-heading span { color: var(--teal); font-size: 12px; font-weight: 900; text-transform: uppercase; }
