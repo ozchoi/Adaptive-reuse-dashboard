@@ -3,17 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hong Kong Industrial Building Adaptive Reuse Decision Dashboard</title>
+  <title>Hong Kong Industrial Building Reuse Suitability Dashboard</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="app-header">
-    <div>
-      <h1>Industrial-to-Residential Adaptive Reuse – Feasibility Study</h1>
-      <p class="lede">Shortage of affordable housing is an aggravating concern. Although, public and subsidized housing relieve the burden, the capacity and waiting times can be significant. Adaptive reuse of suitable structures is an effective mechanism for Hong Kong with limited land resources for providing adequate housing and community facilities. Many industrial buildings built in New Town districts are are now vacant. These are located within proximity to public transportation, community facilities and amenities enhancing their potential for residential use. 2009-2010 revitalization policy assessment have identified many industrial buildings that are suitable for repurposing. 
-This survey intends to gather responses from related stakeholders on the feasibility of converting “new industrial buildings” (post 1970s) to residential use. This survey is for academic research purposes and all information will be treated with confidentiality.</p>
-      <p class="credit">&copy; 2026 Chun Yin Oz Choi. Dashboard developed for the research project “Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use in Hong Kong,” led by Prof. Ruffina Thilakaratne, Department of Architecture, Chu Hai College of Higher Education.</p>
+    <div class="header-copy">
+      <div class="header-meta">
+        <span class="status-badge prototype">Prototype</span>
+        <h1>Hong Kong Industrial Building Reuse Suitability Dashboard</h1>
+      </div>
+      <p class="lede">An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.</p>
+      <button id="headerDescriptionToggle" class="text-link-button" type="button" aria-controls="headerDescription" aria-expanded="false">See more</button>
+      <div id="headerDescription" class="header-description" aria-hidden="true">
+        <p>This dashboard provides a prototype decision-support model for identifying vacant or underused industrial buildings with potential for residential adaptive reuse in Hong Kong. Suitability scores combine planning, lease, ownership, safety, building adaptability, transport, district capacity, neighbourhood compatibility, economic feasibility and policy implementation factors. Scores are intended for early-stage screening only and should be verified through site inspection, statutory planning review, lease assessment, fire safety audit, environmental screening and cost feasibility study.</p>
+      </div>
+      <p class="credit">Academic research prototype. Outputs are indicative and subject to verification.</p>
     </div>
     <div class="header-actions">
       <button id="resetFilters" class="ghost-button" type="button">Reset filters</button>
@@ -69,12 +75,18 @@ This survey intends to gather responses from related stakeholders on the feasibi
         <div class="overview-topline">
           <article id="executiveInsight" class="panel insight-card"></article>
           <article class="panel assumption-card">
-            <h2>Prototype Status</h2>
-            <p><strong>Model status:</strong> Prototype using sample or illustrative building data unless verified datasets have been loaded.</p>
-            <p><strong>Purpose:</strong> Early-stage screening and decision support, not statutory approval.</p>
-            <p><strong>Next step:</strong> Replace sample values with verified building survey, OZP, lease, ownership, fire safety and environmental data.</p>
+            <h2>Model status</h2>
+            <p><strong>Prototype:</strong> Indicative screening model for early-stage review only.</p>
+            <p><strong>Verification:</strong> Confirm site conditions, OZP, lease, fire safety and environmental issues before decisions.</p>
           </article>
         </div>
+        <article class="panel how-to-card">
+          <div class="panel-heading">
+            <h2>How to use this dashboard</h2>
+            <span class="status-badge indicative">Indicative screening</span>
+          </div>
+          <p>Start with the Portfolio Overview to identify high-potential candidates, use the Suitability Map to examine location context, compare shortlisted buildings in Building Comparison, and review the Score Breakdown and Policy Scenario Analysis before selecting sites for further feasibility study.</p>
+        </article>
         <div id="kpis" class="kpi-grid"></div>
         <div class="grid two">
           <article class="panel"><h2>Suitability Categories</h2><div id="categoryChart" class="bars"></div></article>

@@ -226,6 +226,19 @@ function explainTerms(value) {
     return '<span class="term-tip" tabindex="0" title="'+h(termExplanations[key])+'">'+h(match)+'</span>';
   });
 }
+function bindHeaderDescriptionToggle() {
+  const button = document.getElementById('headerDescriptionToggle');
+  const panel = document.getElementById('headerDescription');
+  if (!button || !panel) return;
+  const sync = open => {
+    panel.classList.toggle('is-open', open);
+    panel.setAttribute('aria-hidden', String(!open));
+    button.setAttribute('aria-expanded', String(open));
+    button.textContent = open ? 'See less' : 'See more';
+  };
+  sync(false);
+  button.onclick = () => sync(!panel.classList.contains('is-open'));
+}
 const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
 function supabaseReady() {
   return !!(supabaseConfig.url && supabaseConfig.anonKey && !String(supabaseConfig.url).includes('YOUR_') && !String(supabaseConfig.anonKey).includes('YOUR_'));
@@ -324,7 +337,7 @@ async function saveStakeholderSuggestedFactor(payload) {
 }
 async function loadSupabaseData() {
   if (!supabaseReady()) {
-    state.databaseStatus = 'Using local pilot data until Supabase Project URL and anon key are added in supabase-config.js.';
+    state.databaseStatus = 'Using local pilot data until the Supabase project URL and anon key are added in `supabase-config.js`.';
     render();
     return;
   }
@@ -549,7 +562,7 @@ function factorInterpretation(scoreValue) {
   return 'Potential constraint';
 }
 function mainPlanningImplication(rows) {
-  if (!rows.length) return 'No buildings match the current filters, so the screening assumptions should be broadened or checked.';
+  if (!rows.length) return 'No buildings match the selected filters. Try broadening the district, vacancy or score range.';
   const top = topRankedBuilding(rows);
   if (highPotentialBuildings(rows).length) return 'Prioritise detailed feasibility review for high-scoring candidates, especially ' + top.name + ', before any statutory or lease conclusions are drawn.';
   return 'The current filter set does not identify a high-potential pilot candidate; consider revisiting assumptions, data quality or policy support requirements.';
@@ -711,9 +724,10 @@ function renderExecutiveInsight(rows) {
   const high = highPotentialBuildings(rows);
   const avg = averageScore(rows);
   const top = topRankedBuilding(rows);
+  const tags = '<div class="card-tags"><span class="status-badge prototype">Prototype</span><span class="status-badge indicative">Indicative score</span><span class="status-badge verification">Subject to verification</span></div>';
   el.innerHTML = top
-    ? '<h2>Key Planning Insight</h2><p>The current model identifies <strong>'+h(high.length)+'</strong> high-potential industrial building'+(high.length === 1 ? '' : 's')+' for residential adaptive reuse among the visible records. The strongest candidates combine good transport accessibility, compatible planning context, manageable ownership structure and strong housing demand.</p><div class="insight-metrics"><span><em>Average indicative score</em><strong>'+h(avg)+'</strong></span><span><em>Top-ranked building</em><strong>'+h(top.name)+'</strong></span></div><p><strong>Main planning implication:</strong> '+h(mainPlanningImplication(rows))+'</p><small>Scores are indicative and intended for early-stage screening only.</small>'
-    : '<h2>Key Planning Insight</h2><p>No buildings match the current filters. Broaden the filters or check the input assumptions before drawing planning conclusions.</p><small>Scores are indicative and intended for early-stage screening only.</small>';
+    ? tags + '<h2>Key planning insight</h2><p>The current model identifies <strong>'+h(high.length)+'</strong> high-potential industrial building'+(high.length === 1 ? '' : 's')+' for residential adaptive reuse among the visible records. The strongest candidates combine good transport accessibility, compatible planning context, manageable ownership structure and strong housing demand.</p><div class="insight-metrics"><span><em>Average indicative score</em><strong>'+h(avg)+'</strong></span><span><em>Top-ranked building</em><strong>'+h(top.name)+'</strong></span></div><p><strong>Main planning implication:</strong> '+h(mainPlanningImplication(rows))+'</p><small>Scores are indicative and intended for early-stage screening only.</small>'
+    : tags + '<h2>Key planning insight</h2><p>No buildings match the selected filters. Try broadening the district, vacancy or score range before drawing planning conclusions.</p><small>Scores are indicative and intended for early-stage screening only.</small>';
 }
 function render() {
   const rows = filtered();
@@ -721,13 +735,14 @@ function render() {
   const selected = all.find(b => b.id === state.selected) || all[0];
   renderExecutiveInsight(rows);
   renderFilterSummary(rows.length, all.length);
-  document.getElementById('kpis').innerHTML = [
-    ['Buildings', all.length],
-    ['Visible now', rows.length],
-    ['Average indicative score', rows.length ? averageScore(rows) : 'No data'],
-    ['GFA Gross Floor Area', fmt.format(rows.reduce((s,b)=>s+b.floorArea,0))+' sqm'],
-    ['High potential', highPotentialBuildings(rows).length]
-  ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
+  const overviewKpis = [
+    { label: 'Buildings assessed', value: fmt.format(all.length), helper: 'Indicative records in the dataset', tag: 'Prototype' },
+    { label: 'Visible after filters', value: rows.length ? fmt.format(rows.length) : '0', helper: 'Current selection', tag: 'Indicative score' },
+    { label: 'Average age', value: rows.length ? Math.round(mean(rows.map(b => b.age))) + ' yrs' : 'No matches', helper: 'Approximate stock age', tag: 'Early-stage screening' },
+    { label: 'Total GFA', value: rows.length ? fmt.format(rows.reduce((s,b)=>s+b.floorArea,0))+' sqm' : 'No matches', helper: 'Approximate reusable floor area', tag: 'Subject to verification' },
+    { label: 'High-potential candidates', value: fmt.format(highPotentialBuildings(rows).length), helper: 'Indicative only', tag: 'High indicative suitability' }
+  ];
+  document.getElementById('kpis').innerHTML = overviewKpis.map(item => '<div class="kpi kpi-card"><span>'+h(item.tag)+'</span><strong>'+h(item.value)+'</strong><em>'+h(item.label)+'</em><small>'+h(item.helper)+'</small></div>').join('');
   const cat = document.getElementById('categoryChart'); cat.innerHTML = '';
   ['High','Medium','Lower conversion priority'].forEach(c => bar(cat, categoryLabel(c), rows.filter(b=>b.category===c).length, rows.length || 1, categoryColor[c]));
   const district = document.getElementById('districtChart'); district.innerHTML = '';
@@ -735,10 +750,10 @@ function render() {
     const ds = rows.filter(b=>b.district===d);
     return [d, Math.round(ds.reduce((s,b)=>s+b.score,0)/ds.length)];
   }).sort((a,b)=>b[1]-a[1]).forEach(([d,v]) => bar(district, d, v, 100, '#2563eb'));
-  if (!rows.length) empty(district, 'No district results match the current filters.');
+  if (!rows.length) empty(district, 'No district results match the selected filters. Try broadening the district, vacancy or score range.');
   const top = document.getElementById('topChart'); top.innerHTML = '';
   if (rows.length) rows.slice(0,8).forEach(b => bar(top, b.id + ' ' + b.name, b.score, 100, categoryColor[b.category]));
-  else empty(top, 'No buildings match the current filters.');
+  else empty(top, 'No buildings match the selected filters. Try broadening the district, vacancy or score range.');
   renderMap(rows, selected);
   renderProfile(selected);
   renderTable(rows);
@@ -921,7 +936,7 @@ async function submitSurvey() {
   } catch (error) {
     console.error(error);
     state.surveySubmitted = false;
-    state.databaseStatus = 'Survey could not be saved to Supabase. Check the browser console and database policies.';
+    state.databaseStatus = 'Survey could not be saved to Supabase. Check the browser console, database policies and row-level security settings.';
     updateSurveySummary();
     if (status) status.insertAdjacentHTML('beforeend', '<span>Save failed: '+h(error.message || error)+'</span>');
   } finally {
@@ -955,7 +970,7 @@ function renderSurveyResults() {
   document.getElementById('surveyResultKpis').innerHTML = [
     ['Survey responses', respondentTotal],
     ['Factors scored', scoredRows.length + ' of ' + rows.length],
-    ['Average factor score', scoredRows.length ? averageScore + '/100' : 'No data'],
+    ['Average factor score', scoredRows.length ? averageScore + '/100' : 'Awaiting responses'],
     ['Data source', shouldUseSubmissionData() ? 'Supabase submissions' : 'Local pilot data']
   ].map(([label,value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   document.getElementById('surveyResultKpis').insertAdjacentHTML('beforeend', renderStakeholderDistributionCard(filter, true));
@@ -968,7 +983,7 @@ function renderSurveyResults() {
   document.getElementById('surveyResultTable').innerHTML =
     '<thead><tr><th>Rank</th><th>Dimension</th><th>Factor</th><th>Importance score</th><th>Responses</th><th>Interpretation</th></tr></thead><tbody>' +
     rows.map((row, index) => {
-      const scoreText = row.score === null ? 'No data' : row.score + '/100';
+      const scoreText = row.score === null ? 'Awaiting response' : row.score + '/100';
       const interpretation = row.score === null ? 'Awaiting stakeholder responses' : row.score >= 85 ? 'Very high priority' : row.score >= 75 ? 'High priority' : row.score >= 65 ? 'Moderate priority' : 'Lower relative priority';
       return '<tr><td>'+h(row.score === null ? '-' : index + 1)+'</td><td>'+h(dimensionLabel(row.dimension))+'</td><td><strong>'+h(row.factor_name)+'</strong></td><td>'+h(scoreText)+'</td><td>'+h(row.responseCount)+'</td><td>'+h(interpretation)+'</td></tr>';
     }).join('') + '</tbody>';
@@ -1127,7 +1142,7 @@ function renderMap(rows, selected) {
     if (!document.querySelector('#mapPanel .map-legend')) {
       el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Lower conversion priority'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+h(categoryLabel(c))+'</span>').join('')+'<span><i style="background:'+facilityColor.Hospital+'"></i>Hospital</span><span><i style="background:'+facilityColor['Shopping mall']+'"></i>Shopping mall</span><span><i style="background:'+facilityColor['Wet market']+'"></i>Wet market</span><span><i style="background:'+facilityColor.MTR+'"></i>MTR</span><span><i class="radius-key"></i>500 m</span><span><i class="ozp-key"></i>'+explainTerms('OZP')+' residential</span></div>');
     }
-    if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
+    if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the selected filters. Try broadening the district, vacancy or score range.</div>');
     return;
   }
   el.classList.add('fallback');
@@ -1144,7 +1159,7 @@ function renderMap(rows, selected) {
     m.onclick = () => { state.selected = b.id; render(); };
     el.appendChild(m);
   });
-  if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the current filters.</div>');
+  if (!rows.length) el.insertAdjacentHTML('beforeend', '<div class="empty-state">No mapped buildings match the selected filters. Try broadening the district, vacancy or score range.</div>');
   el.insertAdjacentHTML('beforeend', '<div class="map-legend">'+['High','Medium','Lower conversion priority'].map(c => '<span><i style="background:'+categoryColor[c]+'"></i>'+h(categoryLabel(c))+'</span>').join('')+'</div>');
 }
 function renderMapLayerControls(el) {
@@ -1266,7 +1281,7 @@ function renderComparisonRecommendation(rows) {
   const candidates = pool.length > 1 ? pool : rows.slice(0, 3);
   const best = topRankedBuilding(candidates);
   if (!best) {
-    el.innerHTML = '<strong>Recommendation</strong><p>No buildings match the current filters. Broaden the filters before selecting a near-term pilot candidate.</p>';
+    el.innerHTML = '<strong>Recommendation</strong><p>No buildings match the selected comparison set. Broaden the filters before selecting a near-term pilot candidate.</p>';
     return;
   }
   const factors = factorContributionRows(best);
@@ -1394,6 +1409,7 @@ function init() {
   document.getElementById('stakeholderGroup').innerHTML = stakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('');
   document.getElementById('stakeholderDimension').innerHTML = researchDimensions.map(([key,label]) => '<option value="'+h(key)+'">'+h(label)+'</option>').join('');
   renderCompareControls();
+  bindHeaderDescriptionToggle();
   document.getElementById('scenarioButtons').innerHTML = Object.entries(scenarios).map(([k,s]) => '<button data-scenario="'+k+'">'+h(s.label)+'<small>'+h(s.summary)+'</small></button>').join('');
   document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => {
     state.scenario = btn.dataset.scenario;
@@ -1453,7 +1469,7 @@ async function addStakeholderFactor() {
     renderResearchWorkflow();
   } catch (error) {
     console.error(error);
-    state.databaseStatus = 'Suggested factor could not be saved to Supabase. Check config and RLS policies.';
+    state.databaseStatus = 'Suggested factor could not be saved to Supabase. Check config and row-level security policies.';
     renderResearchWorkflow();
     window.alert('Save failed: ' + (error.message || error));
   } finally {
