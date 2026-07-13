@@ -578,18 +578,102 @@ function regulatoryChecklist(building) {
   const isResidential = building.zoning.includes('Residential');
   const isBusiness = building.zoning.includes('Other Specified Uses');
   return [
-    ['OZP / zoning check', isResidential ? 'Complete' : isBusiness ? 'Partial' : 'High risk', building.zoning],
-    ['Town Planning Board route: S.16 or S.12A may be required', isResidential ? 'Partial' : 'Pending', isResidential ? 'Residential zoning indicated, but route still requires confirmation.' : 'Planning application or rezoning route may be required.'],
-    ['Land lease review', 'Pending', 'Lease conditions are not verified in the sample dataset.'],
-    ['Lease modification / waiver / premium uncertainty', isResidential ? 'Partial' : 'Unknown', building.constraints],
-    ['Building Ordinance compliance', building.age > 55 ? 'High risk' : 'Pending', building.age + ' years old'],
-    ['Fire safety and means of escape', building.safety >= 70 ? 'Partial' : 'High risk', 'Indicative safety score ' + building.safety],
-    ['Natural lighting and ventilation', building.design >= 70 ? 'Partial' : 'Pending', 'Indicative design adaptability score ' + building.design],
-    ['Barrier-free access', building.services >= 70 ? 'Partial' : 'Pending', 'Services and vertical circulation require audit.'],
-    ['Environmental compatibility', building.risk === 'Low' ? 'Partial' : building.risk === 'High' ? 'High risk' : 'Pending', building.risk + ' environmental risk'],
-    ['Noise / air quality / industrial interface screening', building.compatibility === 'High' ? 'Partial' : building.compatibility === 'Low' ? 'High risk' : 'Pending', building.compatibility + ' residential compatibility'],
-    ['Cost feasibility study', building.economic >= 70 ? 'Partial' : 'Pending', 'Indicative economic viability score ' + building.economic]
+    {
+      group: 'Planning route',
+      items: [
+        {
+          item: 'OZP / zoning check',
+          status: isResidential ? 'Complete' : isBusiness ? 'Partial' : 'Pending',
+          implication: 'Verify whether residential use is permitted, requires S.16 permission, or may require S.12A rezoning.',
+          evidence: 'Current zoning: ' + building.zoning
+        },
+        {
+          item: 'Town Planning Board route: S.16 or S.12A may be required',
+          status: isResidential ? 'Partial' : 'Pending',
+          implication: 'Confirm the statutory route before treating the site as a residential conversion candidate.',
+          evidence: isResidential ? 'Residential zoning is indicated, but application requirements still need confirmation.' : 'Planning permission or rezoning route may be required.'
+        }
+      ]
+    },
+    {
+      group: 'Land and lease',
+      items: [
+        {
+          item: 'Land lease review',
+          status: 'Unknown',
+          implication: 'Lease restrictions, waiver conditions or land premium may affect conversion feasibility.',
+          evidence: 'Lease conditions are not verified in the sample dataset.'
+        },
+        {
+          item: 'Lease modification / waiver / premium uncertainty',
+          status: 'Unknown',
+          implication: 'Check whether lease modification, waiver approval or premium payment would be required.',
+          evidence: building.constraints || 'Lease and premium assumptions require verification.'
+        }
+      ]
+    },
+    {
+      group: 'Building compliance',
+      items: [
+        {
+          item: 'Building Ordinance compliance',
+          status: building.age > 55 ? 'High risk' : 'Pending',
+          implication: 'Older buildings may require more substantial code, structure and accessibility review before residential use.',
+          evidence: building.age + ' years old'
+        },
+        {
+          item: 'Fire safety and means of escape',
+          status: building.safety >= 70 ? 'Partial' : 'Pending',
+          implication: 'Residential conversion may require major fire services, compartmentation and escape route upgrades.',
+          evidence: 'Indicative safety score ' + building.safety
+        },
+        {
+          item: 'Natural lighting and ventilation',
+          status: building.design >= 70 ? 'Partial' : 'Pending',
+          implication: 'Confirm that future residential units can meet daylight, ventilation and health expectations.',
+          evidence: 'Indicative design adaptability score ' + building.design
+        },
+        {
+          item: 'Barrier-free access',
+          status: building.services >= 70 ? 'Partial' : 'Pending',
+          implication: 'Audit lifts, stairs, cores and accessible routes for residential occupation and emergency movement.',
+          evidence: 'Indicative services score ' + building.services
+        }
+      ]
+    },
+    {
+      group: 'Environmental and feasibility',
+      items: [
+        {
+          item: 'Environmental compatibility',
+          status: building.risk === 'Low' ? 'Partial' : building.risk === 'High' ? 'High risk' : 'Pending',
+          implication: 'Check noise, air quality and industrial interface risks before assuming residential suitability.',
+          evidence: building.risk + ' environmental risk'
+        },
+        {
+          item: 'Noise / air quality / industrial interface screening',
+          status: building.compatibility === 'High' ? 'Partial' : building.compatibility === 'Low' ? 'High risk' : 'Pending',
+          implication: 'Assess remaining industrial, logistics, traffic and pollution interfaces within the surrounding area.',
+          evidence: building.compatibility + ' residential compatibility'
+        },
+        {
+          item: 'Cost feasibility study',
+          status: building.economic >= 70 ? 'Partial' : 'Pending',
+          implication: 'Test whether retrofit, compliance and lease costs remain proportionate to housing and social benefit.',
+          evidence: 'Indicative economic viability score ' + building.economic
+        }
+      ]
+    }
   ];
+}
+function renderRegulatoryPathwayChecklist(building) {
+  return '<section class="pathway-checklist"><div class="pathway-heading"><div><h3>Regulatory Pathway Checklist</h3><p>Indicative checklist for identifying statutory, lease, building-control and environmental issues before residential conversion.</p></div><span class="status-badge verification">Subject to verification</span></div>' +
+    '<p class="pathway-disclaimer">This checklist supports early-stage screening only and does not replace formal planning, lands, building-control or environmental review.</p>' +
+    '<div class="pathway-groups">' + regulatoryChecklist(building).map(group =>
+      '<section class="pathway-group"><h4>'+h(group.group)+'</h4><div class="pathway-items">' + group.items.map(entry =>
+        '<article class="pathway-item"><header><strong>'+h(entry.item)+'</strong>'+statusBadge(entry.status)+'</header><p>'+h(entry.implication)+'</p><small>'+h(entry.evidence)+'</small></article>'
+      ).join('') + '</div></section>'
+    ).join('') + '</div></section>';
 }
 function nextStepFor(building) {
   if (building.score >= 70) return 'Conduct a detailed feasibility and regulatory pathway review, including OZP, lease, fire safety, environmental and cost checks.';
@@ -1236,17 +1320,20 @@ function renderProfile(b) {
   const mainStrength = strongest[0];
   const mainConstraint = weakest[0];
   const factorTable = items => '<div class="score-factor-list">'+items.map(item => '<div><span>'+h(item.label)+'</span><strong>'+h(item.score)+'</strong><em>'+h(Math.round(item.weight))+'% weight · '+h(factorInterpretation(item.score))+'</em></div>').join('')+'</div>';
-  const checklistRows = regulatoryChecklist(b).map(([item,status,note]) => '<tr><td>'+h(item)+'</td><td>'+statusBadge(status)+'</td><td>'+h(note)+'</td></tr>').join('');
   const catchmentList = catchment.length
     ? '<ul class="catchment-list">'+catchment.map(item => '<li><span class="catchment-dot" style="background:'+facilityColor[item.type]+'"></span><strong>'+h(item.name)+'</strong><em>'+h(item.type)+' · '+h(item.distance)+' m</em></li>').join('')+'</ul>'
     : '<p class="muted-note">No listed community facilities or MTR stations fall inside the 500 m catchment.</p>';
-  document.getElementById('buildingProfile').innerHTML =
+  const profileHtml =
     '<h2>'+h(b.name)+'</h2><p>'+h(b.address)+'</p><span class="badge" style="background:'+categoryColor[b.category]+'">'+h(categoryLabel(b.category))+'</span><strong style="float:right;font-size:34px">'+h(b.score)+'</strong>' +
     '<dl><div><dt>District</dt><dd>'+h(b.district)+'</dd></div><div><dt>Age</dt><dd>'+h(b.age)+' yrs</dd></div><div><dt>Zoning</dt><dd>'+h(b.zoning)+'</dd></div><div><dt>Ownership</dt><dd>'+h(b.ownership)+'</dd></div><div><dt>Vacancy</dt><dd>'+h(b.vacancy)+'%</dd></div><div><dt>Storeys</dt><dd>'+h(b.storeys)+'</dd></div><div><dt>Building height</dt><dd>'+h(b.height)+' m</dd></div><div><dt>MTR distance</dt><dd>'+h(b.mtr)+' m</dd></div></dl>' +
     '<section class="score-explain"><h3>Why this score?</h3><p>This building has an <strong>Indicative Suitability Score of '+h(b.score)+'/100</strong>. It scores strongly because of '+h(mainStrength.label.toLowerCase())+', while its main constraint is '+h(mainConstraint.label.toLowerCase())+'. This is a screening result only and does not represent statutory approval.</p><h4>Top 3 strongest factors</h4>'+factorTable(strongest)+'<h4>Bottom 3 weakest factors</h4>'+factorTable(weakest)+'<dl><div><dt>Main strength</dt><dd>'+h(mainStrength.label)+' ('+h(mainStrength.score)+')</dd></div><div><dt>Main constraint</dt><dd>'+h(mainConstraint.label)+' ('+h(mainConstraint.score)+')</dd></div></dl><p><strong>Recommended next step:</strong> '+h(nextStepFor(b))+'</p></section>' +
-    '<section class="pathway-checklist"><h3>Regulatory Pathway Checklist</h3><p class="muted-note">This checklist is indicative and does not replace statutory planning, lands, building control or environmental review.</p><div class="table-wrap compact-table"><table><thead><tr><th>Item</th><th>Status</th><th>Basis</th></tr></thead><tbody>'+checklistRows+'</tbody></table></div></section>' +
+    renderRegulatoryPathwayChecklist(b) +
     '<h3>500 m community catchment</h3><p class="muted-note">Amenities shown on the GIS map inside the selected building radius.</p><dl>'+summary.map(([label,value]) => '<div><dt>'+h(label)+'</dt><dd>'+h(value)+'</dd></div>').join('')+'<div><dt>Nearest MTR</dt><dd>'+h(nearestStation ? nearestStation.name + ' (' + nearestStation.distance + ' m)' : 'None within 500 m')+'</dd></div></dl>'+catchmentList +
     '<h3>Main constraints</h3><p>'+h(b.constraints)+'</p><h3>Main opportunities</h3><p>'+h(b.opportunities)+'</p>';
+  ['buildingProfile','scoreBuildingProfile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = profileHtml;
+  });
 }
 function renderTable(rows) {
   const factorColumns = activeDimensions().map(([key,label]) => [key, label]);

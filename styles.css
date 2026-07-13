@@ -111,9 +111,25 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .catchment-list strong { min-width: 0; font-size: 13px; }
 .catchment-list em { grid-column: 2; color: var(--muted); font-size: 12px; font-style: normal; }
 .catchment-dot { width: 10px; height: 10px; border-radius: 50%; }
-.score-explain, .pathway-checklist { margin: 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.score-explain { margin: 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.pathway-checklist { display: grid; gap: 14px; margin: 18px 0; padding: 16px; border: 1px solid #bfdbfe; border-radius: 8px; background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
 .score-explain h3, .pathway-checklist h3 { margin: 0 0 8px; }
 .score-explain h4 { margin: 12px 0 8px; font-size: 13px; color: #334155; }
+.pathway-heading { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.pathway-heading p, .pathway-disclaimer { margin: 0; color: #475569; font-size: 13px; line-height: 1.5; }
+.pathway-disclaimer { padding: 10px 12px; border: 1px solid #dbeafe; border-radius: 8px; background: #eff6ff; }
+.pathway-groups { display: grid; gap: 16px; }
+.pathway-group { display: grid; gap: 10px; }
+.pathway-group h4 { margin: 0; color: #334155; font-size: 13px; text-transform: uppercase; }
+.pathway-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pathway-item { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.pathway-item header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.pathway-item strong { min-width: 0; color: var(--ink); font-size: 13px; line-height: 1.35; }
+.pathway-item p { margin: 0; color: #334155; font-size: 13px; line-height: 1.5; }
+.pathway-item small { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.score-profile-panel { margin-top: 16px; }
+.score-profile-panel .pathway-items { grid-template-columns: repeat(2, minmax(280px, 1fr)); }
+.map-grid #buildingProfile .pathway-items { grid-template-columns: 1fr; }
 .score-factor-list { display: grid; gap: 7px; }
 .score-factor-list div { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
 .score-factor-list span { font-size: 12px; font-weight: 800; }
@@ -266,7 +282,7 @@ tbody tr.selected-row { background: var(--green-soft); }
 .scenario-card ol { padding-left: 20px; margin: 12px 0 0; }
 .scenario-card li { margin: 8px 0; }
 @media (max-width: 1100px) { .layout, .map-grid, .scoring-grid, .two, .overview-topline { grid-template-columns: 1fr; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .dimension-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app-header { grid-template-columns: 1fr; } .header-actions { justify-content: flex-start; } }
-@media (max-width: 640px) { .layout { padding: 12px; } .app-header { padding: 22px 16px; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .compare-controls, .baseline-filter-grid, .dimension-summary, .form-grid, .slider-scale, .diff-card div, .compact-filter, .insight-metrics { grid-template-columns: 1fr; } .slider-scale span, .slider-scale span:nth-child(2), .slider-scale span:last-child { text-align: left; } .panel-heading { display: block; } .compact-filter { margin-top: 12px; } .bar-row, .wide .bar-row, .radar-row { grid-template-columns: 1fr; } .map-panel { height: 440px; } }
+@media (max-width: 640px) { .layout { padding: 12px; } .app-header { padding: 22px 16px; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .compare-controls, .baseline-filter-grid, .dimension-summary, .form-grid, .slider-scale, .diff-card div, .compact-filter, .insight-metrics, .pathway-items, .score-profile-panel .pathway-items { grid-template-columns: 1fr; } .slider-scale span, .slider-scale span:nth-child(2), .slider-scale span:last-child { text-align: left; } .panel-heading { display: block; } .compact-filter { margin-top: 12px; } .bar-row, .wide .bar-row, .radar-row { grid-template-columns: 1fr; } .pathway-heading, .pathway-item header { grid-template-columns: 1fr; } .pathway-heading { display: grid; } .map-panel { height: 440px; } }
 
 .header-copy { min-width: 0; }
 .header-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
