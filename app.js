@@ -943,7 +943,7 @@ function renderQuestionnaireFactorTable(pool) {
       const isSelected = state.surveySelectedFactorIds.includes(factor.id);
       const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= maxSurveyFactors;
       const isExpanded = state.expandedSurveyFactorIds.includes(factor.id);
-      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+'"><label class="factor-choice-toggle"><input data-questionnaire-factor="'+h(factor.id)+'" type="checkbox" '+(isSelected ? 'checked' : '')+' '+(isDisabled ? 'disabled' : '')+' /><span>'+(isSelected ? 'Selected' : 'Select')+'</span></label><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong><span>'+h(group.label)+'</span></div><p>'+explainTerms(surveySummaryText(factor))+'</p><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button">'+(isExpanded ? 'Show less' : 'Show details')+'</button><div class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
+      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong>'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'</div><p>'+explainTerms(surveySummaryText(factor))+'</p><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
     }).join('') + '</div></section>';
   }).join('');
   const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
@@ -1008,9 +1008,20 @@ function renderSurveyCriteria() {
     if (value) value.textContent = e.target.value;
     updateSurveySummary();
   });
-  document.querySelectorAll('[data-questionnaire-factor]').forEach(button => button.onclick = e => {
-    toggleQuestionnaireFactor(e.currentTarget.dataset.questionnaireFactor);
-    renderSurveyCriteria();
+  document.querySelectorAll('[data-questionnaire-factor-card]').forEach(card => {
+    const selectCard = e => {
+      if (e.target.closest('[data-factor-details]')) return;
+      toggleQuestionnaireFactor(e.currentTarget.dataset.questionnaireFactorCard);
+      renderSurveyCriteria();
+    };
+    card.onclick = selectCard;
+    card.onkeydown = e => {
+      if (e.target.closest('[data-factor-details]')) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      toggleQuestionnaireFactor(e.currentTarget.dataset.questionnaireFactorCard);
+      renderSurveyCriteria();
+    };
   });
   const reuseOutcomes = reuseOutcomeOptions.map(option =>
     '<label><input data-reuse-outcome="'+h(option)+'" type="checkbox" '+(state.preferredReuseOutcomes.includes(option) ? 'checked' : '')+' /> '+h(option)+'</label>'
@@ -1024,6 +1035,7 @@ function renderSurveyCriteria() {
     renderSurveyReviewPanel(selected) +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>';
   document.querySelectorAll('[data-factor-details]').forEach(button => button.onclick = e => {
+    e.stopPropagation();
     toggleSurveyFactorDetails(e.currentTarget.dataset.factorDetails);
   });
   document.querySelectorAll('[data-rank-move]').forEach(button => button.onclick = e => {
