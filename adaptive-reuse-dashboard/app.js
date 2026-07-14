@@ -203,10 +203,12 @@ const mtrStations = [
 const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 'All', risk: 'All', compatibility: 'All', minScore: 0, minVacancy: 0, maxAge: 80, maxHeight: 220, maxStoreys: 60, maxMtr: 1200 };
 const defaultMapLayers = { buildings: true, catchment: true, facilities: true, mtr: true, ozp: true };
 const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All', risk: 'All', minStoreys: 0, minScore: 0 };
+const minSurveyFactors = 5;
+const maxSurveyFactors = 10;
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'decision' };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 17, government: 17, industry: 17, community: 17, architectPlanner: 16, developer: 16 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'decision' };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -299,14 +301,35 @@ function surveyValuesForFactor(factorId, groupKey = state.surveyResultGroup) {
     .filter(Number.isFinite);
 }
 function surveySubmissionPayload() {
+  cleanQuestionnaireSelection();
+  const selectedFactors = state.surveySelectedFactorIds.slice();
+  const factorRanking = state.surveyFactorRanking.slice();
   const ratings = Object.fromEntries(selectedQuestionnaireFactors().map(factor => [factor.id, surveyRating(factor.id)]));
-  const topFactorNames = state.surveyTopFactors.map(id => (criticalFactors.find(factor => factor.id === id) || {}).factor_name).filter(Boolean);
+  const topThree = factorRanking.slice(0, 3);
+  const topFactorNames = topThree.map(id => (criticalFactors.find(factor => factor.id === id) || {}).factor_name).filter(Boolean);
+  const submittedAt = new Date().toISOString();
+  const respondentProfile = {
+    stakeholderGroup: state.participantGroup,
+    stakeholderGroupKey: stakeholderGroupKey(state.participantGroup),
+    industrialOwnershipType: state.industrialOwnershipType || null
+  };
   return {
     stakeholder_group: state.participantGroup,
     stakeholder_group_key: stakeholderGroupKey(state.participantGroup),
     industrial_ownership_type: state.industrialOwnershipType || null,
+    selected_factors: selectedFactors,
+    factor_ranking: factorRanking,
+    factor_ratings: ratings,
+    respondent_profile: respondentProfile,
+    submitted_at: submittedAt,
+    selectedFactors,
+    factorRanking,
+    factorRatings: ratings,
+    stakeholderGroup: state.participantGroup,
+    respondentProfile,
+    submittedAt,
     ratings,
-    top_factor_ids: state.surveyTopFactors.slice(),
+    top_factor_ids: topThree,
     top_factor_names: topFactorNames,
     preferred_reuse_outcomes: state.preferredReuseOutcomes.slice()
   };
@@ -386,7 +409,7 @@ function groupedFactorOptions(factors) {
   return '<option value="">Select a factor</option>' + groups;
 }
 function surveyRating(factorId) { return state.surveyRatings[factorId] ?? 50; }
-function selectedTopFactorIds() { return state.surveyTopFactors.filter(Boolean); }
+function selectedTopFactorIds() { return state.surveyFactorRanking.slice(0, 3); }
 function selectedReuseOutcomes() { return state.preferredReuseOutcomes; }
 function stakeholderGroupLabel(key) { return (stakeholderWeightGroups.find(group => group.key === key) || { label: key }).label; }
 function flattenResponses(groups) { return Object.values(groups).flat(); }
@@ -429,17 +452,53 @@ function selectedQuestionnaireFactors() {
 }
 function cleanQuestionnaireSelection() {
   const validIds = new Set(questionnaireFactorPool().map(factor => factor.id));
-  state.surveySelectedFactorIds = state.surveySelectedFactorIds.filter(id => validIds.has(id)).slice(0, 10);
+  state.surveySelectedFactorIds = state.surveySelectedFactorIds.filter(id => validIds.has(id)).slice(0, maxSurveyFactors);
   const selectedIds = new Set(state.surveySelectedFactorIds);
   Object.keys(state.surveyRatings).forEach(id => { if (!selectedIds.has(id)) delete state.surveyRatings[id]; });
-  state.surveyTopFactors = state.surveyTopFactors.map(id => selectedIds.has(id) ? id : '');
+  state.surveyFactorRanking = state.surveyFactorRanking.filter(id => selectedIds.has(id));
+  state.surveySelectedFactorIds.forEach(id => { if (!state.surveyFactorRanking.includes(id)) state.surveyFactorRanking.push(id); });
+  state.surveyTopFactors = state.surveyFactorRanking.slice(0, 3);
+  state.expandedSurveyFactorIds = state.expandedSurveyFactorIds.filter(id => validIds.has(id));
 }
 function toggleQuestionnaireFactor(factorId) {
   const selected = state.surveySelectedFactorIds.includes(factorId);
   if (selected) state.surveySelectedFactorIds = state.surveySelectedFactorIds.filter(id => id !== factorId);
-  else if (state.surveySelectedFactorIds.length < 10) state.surveySelectedFactorIds.push(factorId);
+  else if (state.surveySelectedFactorIds.length < maxSurveyFactors) state.surveySelectedFactorIds.push(factorId);
   cleanQuestionnaireSelection();
   setSurveyInProgress();
+}
+function surveySummaryText(factor) {
+  const text = surveyExplanation(factor).replace(/\s+/g, ' ').trim();
+  const sentence = text.match(/.*?[.!?](\s|$)/);
+  return (sentence ? sentence[0] : text).trim();
+}
+function toggleSurveyFactorDetails(factorId) {
+  state.expandedSurveyFactorIds = state.expandedSurveyFactorIds.includes(factorId)
+    ? state.expandedSurveyFactorIds.filter(id => id !== factorId)
+    : [...state.expandedSurveyFactorIds, factorId];
+  renderSurveyCriteria();
+}
+function moveRankingFactor(factorId, direction) {
+  cleanQuestionnaireSelection();
+  const index = state.surveyFactorRanking.indexOf(factorId);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= state.surveyFactorRanking.length) return;
+  const ranking = state.surveyFactorRanking.slice();
+  [ranking[index], ranking[nextIndex]] = [ranking[nextIndex], ranking[index]];
+  state.surveyFactorRanking = ranking;
+  state.surveyTopFactors = ranking.slice(0, 3);
+  setSurveyInProgress();
+  renderSurveyCriteria();
+}
+function moveRankingFactorBefore(dragId, targetId) {
+  if (!dragId || !targetId || dragId === targetId) return;
+  const ranking = state.surveyFactorRanking.filter(id => id !== dragId);
+  const targetIndex = ranking.indexOf(targetId);
+  ranking.splice(targetIndex < 0 ? ranking.length : targetIndex, 0, dragId);
+  state.surveyFactorRanking = ranking;
+  state.surveyTopFactors = ranking.slice(0, 3);
+  setSurveyInProgress();
+  renderSurveyCriteria();
 }
 function surveyGroupResponseCount(groupKey) {
   if (shouldUseSubmissionData()) {
@@ -722,6 +781,7 @@ function empty(parent, message) { parent.innerHTML = '<div class="empty-state">'
 function setSurveyInProgress() {
   state.surveySubmitted = false;
   state.surveyResultsUnlocked = false;
+  state.surveyReviewOpen = false;
   updateSurveyResultAccess();
 }
 function activateTab(tabName) {
@@ -747,6 +807,7 @@ function updateSurveyResultAccess() {
   if (!state.surveyResultsUnlocked && document.getElementById('survey-results')?.classList.contains('active')) activateTab('survey');
 }
 function updateViewModeTabs() {
+  document.body.classList.toggle('research-mode', state.viewMode === 'research');
   document.querySelectorAll('[data-view-mode]').forEach(button => {
     button.classList.toggle('active', button.dataset.viewMode === state.viewMode);
   });
@@ -876,17 +937,38 @@ function renderQuestionnaireFactorTable(pool) {
     label,
     factors: pool.filter(factor => factor.dimension === key)
   }));
-  const maxRows = Math.max(...byDimension.map(group => group.factors.length), 0);
-  const rows = Array.from({ length: maxRows }).map((_, rowIndex) =>
-    '<tr>'+byDimension.map(group => {
-      const factor = group.factors[rowIndex];
-      if (!factor) return '<td class="empty-factor-cell"></td>';
+  const cards = byDimension.map(group => {
+    if (!group.factors.length) return '';
+    return '<section class="factor-choice-group"><h4>'+h(group.label)+'</h4><div class="factor-choice-grid">' + group.factors.map(factor => {
       const isSelected = state.surveySelectedFactorIds.includes(factor.id);
-      const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= 10;
-      return '<td><button data-questionnaire-factor="'+h(factor.id)+'" type="button" class="'+(isSelected ? 'selected' : '')+'" '+(isDisabled ? 'disabled' : '')+'><strong>'+explainTerms(factor.factor_name)+'</strong><span>'+h(surveyExplanation(factor))+'</span></button></td>';
-    }).join('')+'</tr>'
-  ).join('');
-  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select up to 10 key factors</strong><span>'+h(state.surveySelectedFactorIds.length)+'/10 selected</span></div><p class="map-note">Choose only the factors you think are important. Sliders will appear below for selected factors only.</p><div class="factor-matrix-wrap"><table class="factor-matrix"><thead><tr>'+byDimension.map(group => '<th>'+h(group.label)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+      const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= maxSurveyFactors;
+      const isExpanded = state.expandedSurveyFactorIds.includes(factor.id);
+      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+'"><label class="factor-choice-toggle"><input data-questionnaire-factor="'+h(factor.id)+'" type="checkbox" '+(isSelected ? 'checked' : '')+' '+(isDisabled ? 'disabled' : '')+' /><span>'+(isSelected ? 'Selected' : 'Select')+'</span></label><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong><span>'+h(group.label)+'</span></div><p>'+explainTerms(surveySummaryText(factor))+'</p><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button">'+(isExpanded ? 'Show less' : 'Show details')+'</button><div class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
+    }).join('') + '</div></section>';
+  }).join('');
+  const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
+  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider important for assessing industrial-to-residential adaptive reuse suitability. Then rank all selected factors from most important to least important.</p>'+limitMessage+'<div class="factor-choice-layout">'+cards+'</div></div>';
+}
+function renderRankingList(selected) {
+  const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
+  const items = state.surveyFactorRanking.filter(id => selectedById[id]).map((id, index) => {
+    const factor = selectedById[id];
+    return '<article class="ranking-item" draggable="true" data-ranking-id="'+h(id)+'"><span class="rank-number">'+h(index + 1)+'</span><div><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em></div><div class="rank-actions"><button data-rank-move="up" data-ranking-id="'+h(id)+'" type="button" '+(index === 0 ? 'disabled' : '')+'>Up</button><button data-rank-move="down" data-ranking-id="'+h(id)+'" type="button" '+(index === state.surveyFactorRanking.length - 1 ? 'disabled' : '')+'>Down</button></div></article>';
+  }).join('');
+  const emptyMessage = selected.length
+    ? '<p class="map-note">Ranking will be complete when all selected factors appear here.</p>'
+    : '<div class="empty-state">Select between 5 and 10 factors to create the ranking list.</div>';
+  return '<div class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Drag to reorder the selected factors. Rank 1 means the most important factor.</p>'+(items ? '<div class="ranking-list">'+items+'</div>' : emptyMessage)+'</div>';
+}
+function renderSurveyReviewPanel(selected) {
+  if (!state.surveyReviewOpen) return '';
+  const ranked = state.surveyFactorRanking.map((id, index) => {
+    const factor = selected.find(item => item.id === id);
+    return factor ? '<li><strong>'+h(index + 1)+'.</strong> '+h(factor.factor_name)+'</li>' : '';
+  }).filter(Boolean).join('');
+  const ratings = selected.map(factor => '<li><strong>'+h(factor.factor_name)+'</strong><span>'+h(surveyRating(factor.id))+'/100</span></li>').join('');
+  const outcomes = selectedReuseOutcomes();
+  return '<div class="survey-review-panel"><h3>Please review your response before final submission.</h3><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div><div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not applicable')+'</dd></div><div><dt>Preferred reuse outcomes</dt><dd>'+h(outcomes.length ? outcomes.join(', ') : 'None selected')+'</dd></div></dl><h4>Selected factors and ranking</h4><ol class="review-ranking">'+ranked+'</ol><h4>Importance ratings</h4><ul class="review-ratings">'+ratings+'</ul><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -930,25 +1012,34 @@ function renderSurveyCriteria() {
     toggleQuestionnaireFactor(e.currentTarget.dataset.questionnaireFactor);
     renderSurveyCriteria();
   });
-  const optionsHtml = groupedFactorOptions(selected);
-  const ranked = state.surveyTopFactors.map((factorId, index) =>
-    '<label>Rank '+(index + 1)+'<select data-top-factor="'+index+'">'+optionsHtml+'</select></label>'
-  ).join('');
   const reuseOutcomes = reuseOutcomeOptions.map(option =>
     '<label><input data-reuse-outcome="'+h(option)+'" type="checkbox" '+(state.preferredReuseOutcomes.includes(option) ? 'checked' : '')+' /> '+h(option)+'</label>'
   ).join('');
+  const submitButtonHtml = state.surveyReviewOpen ? '' : '<button id="submitSurvey" class="primary-button" type="button">Submit survey</button>';
   document.getElementById('surveyPreview').innerHTML =
     '<div class="survey-banner"><strong>'+h(selected.length)+'</strong><span>participant-selected factors</span></div>' +
-    '<div class="ranked-selects">'+ranked+'</div>' +
+    renderRankingList(selected) +
     '<div class="reuse-outcome-box"><h3>Preferred Reuse Outcome</h3><div class="reuse-options">'+reuseOutcomes+'</div></div>' +
-    '<button id="submitSurvey" class="primary-button" type="button">Submit survey</button>' +
+    submitButtonHtml +
+    renderSurveyReviewPanel(selected) +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>';
-  document.querySelectorAll('[data-top-factor]').forEach(select => {
-    select.value = state.surveyTopFactors[Number(select.dataset.topFactor)] || '';
-    select.onchange = e => {
-      state.surveyTopFactors[Number(e.target.dataset.topFactor)] = e.target.value;
-      setSurveyInProgress();
-      updateSurveySummary();
+  document.querySelectorAll('[data-factor-details]').forEach(button => button.onclick = e => {
+    toggleSurveyFactorDetails(e.currentTarget.dataset.factorDetails);
+  });
+  document.querySelectorAll('[data-rank-move]').forEach(button => button.onclick = e => {
+    moveRankingFactor(e.currentTarget.dataset.rankingId, e.currentTarget.dataset.rankMove === 'up' ? -1 : 1);
+  });
+  document.querySelectorAll('[data-ranking-id][draggable="true"]').forEach(item => {
+    item.ondragstart = e => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', e.currentTarget.dataset.rankingId);
+      e.currentTarget.classList.add('dragging');
+    };
+    item.ondragend = e => e.currentTarget.classList.remove('dragging');
+    item.ondragover = e => e.preventDefault();
+    item.ondrop = e => {
+      e.preventDefault();
+      moveRankingFactorBefore(e.dataTransfer.getData('text/plain'), e.currentTarget.dataset.rankingId);
     };
   });
   document.querySelectorAll('[data-reuse-outcome]').forEach(input => input.onchange = e => {
@@ -959,7 +1050,12 @@ function renderSurveyCriteria() {
     setSurveyInProgress();
     updateSurveySummary();
   });
-  document.getElementById('submitSurvey').onclick = submitSurvey;
+  const submitSurveyButton = document.getElementById('submitSurvey');
+  if (submitSurveyButton) submitSurveyButton.onclick = submitSurvey;
+  const editSurveyResponse = document.getElementById('editSurveyResponse');
+  if (editSurveyResponse) editSurveyResponse.onclick = () => { state.surveyReviewOpen = false; updateSurveySummary(); renderSurveyCriteria(); };
+  const confirmSurveySubmission = document.getElementById('confirmSurveySubmission');
+  if (confirmSurveySubmission) confirmSurveySubmission.onclick = confirmSurveySubmissionHandler;
   updateSurveySummary();
 }
 function updateSurveySummary() {
@@ -967,56 +1063,67 @@ function updateSurveySummary() {
   if (!status) return;
   const selected = selectedQuestionnaireFactors();
   const rated = selected.filter(factor => state.surveyRatings[factor.id] !== undefined).length;
-  const topIds = selectedTopFactorIds();
-  const duplicateCount = topIds.length - new Set(topIds).size;
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
-  const missingFactors = selected.length < 3;
+  const missingFactors = selected.length < minSurveyFactors || selected.length > maxSurveyFactors;
   const reuseOutcomes = selectedReuseOutcomes();
   const participantMessage = !state.participantGroup
     ? 'Stakeholder group is required.'
     : state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType
       ? 'Industrial Unit Owner requires ownership type.'
       : '';
-  const rankedNames = state.surveyTopFactors.map((id, index) => {
+  const rankedNames = state.surveyFactorRanking.map((id, index) => {
     const factor = selected.find(item => item.id === id);
     return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
   }).filter(Boolean).join('');
   const message = state.surveySubmitted
-    ? '<strong>Survey submitted</strong><span>'+rated+' slider responses saved. Top 3 ranking recorded.</span><span>'+h(state.databaseStatus)+'</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
-    : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' selected-factor sliders adjusted. Select 3 to 10 key factors, complete participant profile, then rank three selected factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span><span>'+h(state.databaseStatus)+'</span>';
-  status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (duplicateCount || missingParticipant || missingFactors ? ' has-error' : '');
-  status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (missingFactors ? '<span>Please select at least three key factors from the table.</span>' : '') + (duplicateCount ? '<span>Each top-3 rank must use a different selected factor.</span>' : '') + (rankedNames ? '<ol>'+rankedNames+'</ol>' : '');
+    ? '<strong>Thank you. Your survey response has been submitted.</strong><span>'+rated+' slider responses saved. Full ranking recorded.</span><span>'+h(state.databaseStatus)+'</span><span>Stakeholder group: '+h(state.participantGroup)+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse outcome: '+h(reuseOutcomes.length ? reuseOutcomes.join(', ') : 'None selected')+'</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
+    : state.surveyReviewOpen
+      ? '<strong>Review response</strong><span>Please review your response before final submission.</span>'
+      : '<strong>Survey in progress</strong><span>'+rated+' of '+selected.length+' selected-factor sliders adjusted. Select 5 to 10 key factors, then rank all selected factors before submitting.</span><span>'+h(reuseOutcomes.length)+' preferred reuse outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected.</span><span>'+h(state.databaseStatus)+'</span>';
+  status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (missingParticipant || missingFactors ? ' has-error' : '');
+  status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (missingFactors ? '<span>Please select between 5 and 10 factors before ranking them.</span>' : '') + (rankedNames && !state.surveyReviewOpen ? '<ol>'+rankedNames+'</ol>' : '');
   const seeResultsButton = document.getElementById('seeSurveyResults');
   if (seeResultsButton) seeResultsButton.onclick = () => activateTab('survey-results');
 }
-async function submitSurvey() {
-  const topIds = selectedTopFactorIds();
+function submitSurvey() {
   const status = document.getElementById('surveySubmitStatus');
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Industrial Unit Owner' && !state.industrialOwnershipType);
   const selected = selectedQuestionnaireFactors();
-  if (missingParticipant || selected.length < 3 || topIds.length !== 3 || new Set(topIds).size !== 3) {
+  if (missingParticipant || selected.length < minSurveyFactors || selected.length > maxSurveyFactors) {
     setSurveyInProgress();
     updateSurveySummary();
-    if (status) status.insertAdjacentHTML('beforeend', '<span>Please select at least three factors, complete the participant profile and choose three different selected factors for Rank 1, Rank 2 and Rank 3.</span>');
+    if (status) status.insertAdjacentHTML('beforeend', '<span>Please select between 5 and 10 factors before ranking them.</span>');
     return;
   }
   selected.forEach(factor => {
     if (state.surveyRatings[factor.id] === undefined) state.surveyRatings[factor.id] = surveyRating(factor.id);
   });
+  state.surveyReviewOpen = true;
+  renderSurveyCriteria();
+}
+async function confirmSurveySubmissionHandler() {
+  const status = document.getElementById('surveySubmitStatus');
+  const selected = selectedQuestionnaireFactors();
   const submitButton = document.getElementById('submitSurvey');
+  const confirmButton = document.getElementById('confirmSurveySubmission');
   if (submitButton) {
     submitButton.disabled = true;
     submitButton.textContent = 'Saving...';
+  }
+  if (confirmButton) {
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'Saving...';
   }
   try {
     await saveSurveySubmission(surveySubmissionPayload());
     state.surveySubmitted = true;
     state.surveyResultsUnlocked = true;
+    state.surveyReviewOpen = false;
     state.weights = finalResearchWeights();
     state.researchWeights = state.weights.slice();
     updateSurveyResultAccess();
     renderSurveyResults();
-    updateSurveySummary();
+    renderSurveyCriteria();
   } catch (error) {
     console.error(error);
     state.surveySubmitted = false;
@@ -1027,6 +1134,10 @@ async function submitSurvey() {
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.textContent = 'Submit survey';
+    }
+    if (confirmButton) {
+      confirmButton.disabled = false;
+      confirmButton.textContent = 'Confirm submission';
     }
   }
 }
