@@ -236,7 +236,7 @@ const maxSurveyFactors = 10;
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'Community / NGO', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 13, government: 13, industry: 13, community: 13, architectPlanner: 12, developer: 12, financial: 12, property: 12 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'decision' };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { academics: 13, government: 13, industry: 13, community: 13, architectPlanner: 12, developer: 12, financial: 12, property: 12 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research' };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -921,7 +921,23 @@ function updateViewModeTabs() {
   });
   updateSurveyResultAccess();
   const activeTab = document.querySelector('.tab.active');
-  if (!activeTab || activeTab.hidden) activateTab(state.viewMode === 'decision' ? 'overview' : 'factors');
+  if (!activeTab || activeTab.hidden) activateTab(state.viewMode === 'decision' ? 'overview' : 'survey');
+}
+function validTabNameFromHash() {
+  const tabName = decodeURIComponent((window.location.hash || '').replace(/^#/, '')).trim();
+  if (!tabName) return '';
+  const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
+  const panel = document.getElementById(tabName);
+  if (!tab || !panel) return '';
+  if (tabName === 'survey-results' && !state.surveyResultsUnlocked) return '';
+  return tabName;
+}
+function openInitialTab() {
+  const tabName = validTabNameFromHash() || 'survey';
+  const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
+  if (tab?.dataset.mode) state.viewMode = tab.dataset.mode;
+  updateViewModeTabs();
+  activateTab(tabName);
 }
 function radarPoint(index, total, radius, value = 100) {
   const angle = -Math.PI / 2 + index * Math.PI * 2 / total;
@@ -1795,8 +1811,16 @@ function init() {
     render();
   };
   syncFilterControls();
-  updateSurveyResultAccess();
+  openInitialTab();
   render();
+  window.addEventListener('hashchange', () => {
+    const tabName = validTabNameFromHash();
+    if (!tabName) return;
+    const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
+    if (tab?.dataset.mode) state.viewMode = tab.dataset.mode;
+    updateViewModeTabs();
+    activateTab(tabName);
+  });
   loadSupabaseData();
 }
 function exportSurveyCriteria() {

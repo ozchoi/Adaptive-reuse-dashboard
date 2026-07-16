@@ -54,13 +54,13 @@
     <section class="content">
       <div class="view-mode-toggle" aria-label="View mode">
         <span>View mode</span>
-        <button class="active" data-view-mode="decision" type="button">Decision Dashboard</button>
-        <button data-view-mode="research" type="button">Research Workflow</button>
+        <button data-view-mode="decision" type="button">Decision Dashboard</button>
+        <button class="active" data-view-mode="research" type="button">Research Workflow</button>
       </div>
       <nav class="tabs" aria-label="Dashboard tabs">
-        <button class="tab active" data-tab="overview" data-mode="decision">Portfolio Overview</button>
+        <button class="tab" data-tab="overview" data-mode="decision">Portfolio Overview</button>
         <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
-        <button class="tab" data-tab="survey" data-mode="research">Stakeholder Survey Setup</button>
+        <button class="tab active" data-tab="survey" data-mode="research">Questionnaire</button>
         <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
         <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
         <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
@@ -70,7 +70,7 @@
         <button class="tab" data-tab="scenarios" data-mode="decision">Policy Scenario Analysis</button>
       </nav>
 
-      <section id="overview" class="tab-panel active">
+      <section id="overview" class="tab-panel">
         <div class="overview-topline">
           <article id="executiveInsight" class="panel insight-card"></article>
           <article class="panel assumption-card">
@@ -105,7 +105,7 @@
         </article>
       </section>
 
-      <section id="survey" class="tab-panel">
+      <section id="survey" class="tab-panel active">
         <div class="survey-layout">
           <article class="panel survey-instrument-panel">
             <div class="panel-heading">
