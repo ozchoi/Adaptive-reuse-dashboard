@@ -234,6 +234,17 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .reuse-outcome-box h3 { margin: 0; font-size: 15px; }
 .reuse-options { display: grid; gap: 8px; }
 .reuse-options label { display: flex; grid-template-columns: none; align-items: center; gap: 8px; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #f8fafc; color: #334155; font-size: 13px; font-weight: 700; }
+.outcome-likelihood-table { display: grid; gap: 8px; }
+.outcome-likelihood-header, .outcome-likelihood-row { display: grid; grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(92px, 1fr)); gap: 8px; align-items: center; }
+.outcome-likelihood-header { color: #64748b; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.outcome-likelihood-row { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.outcome-likelihood-row > strong { color: var(--ink); font-size: 13px; line-height: 1.3; }
+.likelihood-options { display: contents; }
+.likelihood-option { position: relative; margin: 0; }
+.likelihood-option input { position: absolute; opacity: 0; pointer-events: none; }
+.likelihood-option span { display: grid; min-height: 38px; place-items: center; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #475569; font-size: 12px; font-weight: 850; text-align: center; cursor: pointer; transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease; }
+.likelihood-option input:focus-visible + span { outline: 3px solid rgba(13, 148, 136, 0.2); outline-offset: 2px; }
+.likelihood-option.selected span, .likelihood-option input:checked + span { border-color: var(--teal); background: var(--green-soft); color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
 .survey-submit-status { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .survey-submit-status strong { color: var(--ink); font-size: 13px; }
 .survey-submit-status.submitted { border-color: #99f6e4; background: var(--green-soft); }
@@ -320,6 +331,7 @@ tbody tr.selected-row { background: var(--green-soft); }
 .scenario-card li { margin: 8px 0; }
 @media (max-width: 1100px) { .layout, .map-grid, .scoring-grid, .two, .overview-topline { grid-template-columns: 1fr; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .dimension-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app-header { grid-template-columns: 1fr; } .header-actions { justify-content: flex-start; } }
 @media (max-width: 640px) { .layout { padding: 12px; } .app-header { padding: 22px 16px; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .compare-controls, .baseline-filter-grid, .dimension-summary, .form-grid, .slider-scale, .diff-card div, .compact-filter, .insight-metrics, .pathway-items, .score-profile-panel .pathway-items, .factor-choice-layout, .factor-choice-grid { grid-template-columns: 1fr; } .factor-choice-layout { overflow-x: visible; } .slider-scale span, .slider-scale span:nth-child(2), .slider-scale span:last-child { text-align: left; } .panel-heading { display: block; } .compact-filter { margin-top: 12px; } .bar-row, .wide .bar-row, .radar-row, .ranking-item, .review-ratings li { grid-template-columns: 1fr; } .rank-actions { justify-content: flex-start; } .pathway-heading, .pathway-item header { grid-template-columns: 1fr; } .pathway-heading { display: grid; } .map-panel { height: 440px; } }
+@media (max-width: 760px) { .outcome-likelihood-header { display: none; } .outcome-likelihood-row { grid-template-columns: 1fr; gap: 10px; } .likelihood-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
 
 .header-copy { min-width: 0; }
 .header-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
