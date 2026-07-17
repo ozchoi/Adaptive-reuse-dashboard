@@ -9,6 +9,7 @@ create table if not exists public.survey_submissions (
   industrial_ownership_type text,
   adaptive_reuse_knowledge text,
   project_involvement text,
+  project_location text,
   ratings jsonb not null default '{}'::jsonb,
   selected_factors text[] not null default '{}',
   factor_ranking text[] not null default '{}',
@@ -19,6 +20,7 @@ create table if not exists public.survey_submissions (
   selected_reuse_redevelopment_outcomes text[] not null default '{}',
   respondent_profile jsonb not null default '{}'::jsonb,
   submitted_at timestamptz,
+  response_data jsonb not null default '{}'::jsonb,
   "selectedFactors" text[] not null default '{}',
   "factorRanking" text[] not null default '{}',
   "derivedFactorWeights" jsonb not null default '{}'::jsonb,
@@ -28,6 +30,7 @@ create table if not exists public.survey_submissions (
   "statutoryBodyType" text,
   "adaptiveReuseKnowledge" text,
   "projectInvolvement" text,
+  "projectLocation" text,
   "preferredReuseRedevelopmentOutcomes" jsonb not null default '{}'::jsonb,
   "selectedReuseRedevelopmentOutcomes" text[] not null default '{}',
   "respondentProfile" jsonb not null default '{}'::jsonb,
@@ -41,6 +44,7 @@ alter table public.survey_submissions add column if not exists selected_factors 
 alter table public.survey_submissions add column if not exists statutory_body_type text;
 alter table public.survey_submissions add column if not exists adaptive_reuse_knowledge text;
 alter table public.survey_submissions add column if not exists project_involvement text;
+alter table public.survey_submissions add column if not exists project_location text;
 alter table public.survey_submissions add column if not exists factor_ranking text[] not null default '{}';
 alter table public.survey_submissions add column if not exists derived_factor_weights jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists derived_factor_raw_scores jsonb not null default '{}'::jsonb;
@@ -49,6 +53,7 @@ alter table public.survey_submissions add column if not exists preferred_reuse_r
 alter table public.survey_submissions add column if not exists selected_reuse_redevelopment_outcomes text[] not null default '{}';
 alter table public.survey_submissions add column if not exists respondent_profile jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists submitted_at timestamptz;
+alter table public.survey_submissions add column if not exists response_data jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists "selectedFactors" text[] not null default '{}';
 alter table public.survey_submissions add column if not exists "factorRanking" text[] not null default '{}';
 alter table public.survey_submissions add column if not exists "derivedFactorWeights" jsonb not null default '{}'::jsonb;
@@ -58,6 +63,7 @@ alter table public.survey_submissions add column if not exists "stakeholderGroup
 alter table public.survey_submissions add column if not exists "statutoryBodyType" text;
 alter table public.survey_submissions add column if not exists "adaptiveReuseKnowledge" text;
 alter table public.survey_submissions add column if not exists "projectInvolvement" text;
+alter table public.survey_submissions add column if not exists "projectLocation" text;
 alter table public.survey_submissions add column if not exists "preferredReuseRedevelopmentOutcomes" jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists "selectedReuseRedevelopmentOutcomes" text[] not null default '{}';
 alter table public.survey_submissions add column if not exists "respondentProfile" jsonb not null default '{}'::jsonb;

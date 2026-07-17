@@ -135,7 +135,7 @@ const stakeholderWeightGroups = [
   { key: 'ngoCommunity', label: 'NGO / community organisation' },
   { key: 'developerInvestor', label: 'Developer / investor' },
   { key: 'buildingOwner', label: 'Building owner / landlord' },
-  { key: 'tenantOccupier', label: 'Tenant / occupier' },
+  { key: 'tenantOccupier', label: 'Industrial tenant / occupier' },
   { key: 'generalPublic', label: 'General public' },
   { key: 'other', label: 'Other' }
 ];
@@ -151,6 +151,7 @@ const stakeholderGroupAliases = {
   Developer: 'developerInvestor',
   [ ['Professional', 'consultant'].join(' ') ]: 'professional',
   [ ['Property', 'sector'].join(' ') ]: 'propertyManagement',
+  [ ['Tenant', 'occupier'].join(' / ') ]: 'tenantOccupier',
   [ ['Government', 'statutory', 'body'].join(' / ') ]: 'government'
 };
 const surveyStakeholderGroups = [
@@ -174,6 +175,15 @@ const projectInvolvementOptions = [
   'Yes, indirectly',
   'Yes, directly',
   'Prefer not to say'
+];
+const projectLocationOptions = [
+  'Hong Kong',
+  'Other Asian countries',
+  'Oceania',
+  'Europe',
+  'North America',
+  'South America',
+  'Africa'
 ];
 const outcomeLikelihoodScale = [
   { value: 1, label: 'Not likely' },
@@ -260,7 +270,7 @@ const maxSurveyFactors = 10;
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research' };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research' };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -355,6 +365,15 @@ const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
 function supabaseReady() {
   return !!(supabaseConfig.url && supabaseConfig.anonKey && !String(supabaseConfig.url).includes('YOUR_') && !String(supabaseConfig.anonKey).includes('YOUR_'));
 }
+class SupabaseRequestError extends Error {
+  constructor(message, details = {}, status = null) {
+    super(message);
+    this.name = 'SupabaseRequestError';
+    this.details = details;
+    this.status = status;
+    this.code = details && details.code ? details.code : null;
+  }
+}
 async function supabaseRequest(table, options = {}) {
   if (!supabaseReady()) throw new Error('Supabase is not configured.');
   const url = String(supabaseConfig.url).replace(/\/$/, '') + '/rest/v1/' + table + (options.query || '');
@@ -371,7 +390,9 @@ async function supabaseRequest(table, options = {}) {
   });
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || 'Supabase request failed with status ' + response.status);
+    let parsed = null;
+    try { parsed = body ? JSON.parse(body) : null; } catch (error) { parsed = null; }
+    throw new SupabaseRequestError((parsed && parsed.message) || body || 'Supabase request failed with status ' + response.status, parsed || { body }, response.status);
   }
   return response.status === 204 ? [] : response.json();
 }
@@ -440,6 +461,60 @@ function normalizedDerivedFactorWeights(submission = {}) {
 function normalizedFactorRanking(submission = {}) {
   return submission.factor_ranking || submission.factorRanking || submission.top_factor_ids || [];
 }
+function responseDataFromRow(row = {}) {
+  if (!row.response_data) return null;
+  if (typeof row.response_data === 'string') {
+    try { return JSON.parse(row.response_data); } catch (error) { return null; }
+  }
+  return typeof row.response_data === 'object' ? row.response_data : null;
+}
+function normaliseSurveySubmission(row = {}) {
+  const responseData = responseDataFromRow(row);
+  const base = responseData ? {...responseData} : {
+    stakeholderGroup: row.stakeholder_group || row.stakeholderGroup || null,
+    stakeholderGroupKey: row.stakeholder_group_key || row.stakeholderGroupKey || null,
+    statutoryBodyType: row.statutory_body_type || row.statutoryBodyType || null,
+    industrialOwnershipType: row.industrial_ownership_type || row.industrialOwnershipType || null,
+    adaptiveReuseKnowledge: row.adaptive_reuse_knowledge || row.adaptiveReuseKnowledge || null,
+    projectInvolvement: row.project_involvement || row.projectInvolvement || null,
+    projectLocation: row.project_location || row.projectLocation || null,
+    selectedFactors: row.selected_factors || row.selectedFactors || [],
+    factorRanking: row.factor_ranking || row.factorRanking || row.top_factor_ids || [],
+    derivedFactorWeights: row.derived_factor_weights || row.derivedFactorWeights || {},
+    derivedFactorRawScores: row.derived_factor_raw_scores || row.derivedFactorRawScores || {},
+    factorRatings: row.factor_ratings || row.factorRatings || row.ratings || {},
+    preferredReuseRedevelopmentOutcomes: row.preferred_reuse_redevelopment_outcomes || row.preferredReuseRedevelopmentOutcomes || {},
+    selectedReuseRedevelopmentOutcomes: row.selected_reuse_redevelopment_outcomes || row.selectedReuseRedevelopmentOutcomes || [],
+    respondentProfile: row.respondent_profile || row.respondentProfile || {},
+    submittedAt: row.submitted_at || row.submittedAt || null,
+    ratings: row.ratings || row.factor_ratings || row.factorRatings || {},
+    top_factor_ids: row.top_factor_ids || [],
+    top_factor_names: row.top_factor_names || [],
+    preferred_reuse_outcomes: row.preferred_reuse_outcomes || []
+  };
+  const stakeholderGroup = base.stakeholderGroup || base.stakeholder_group || row.stakeholder_group || row.stakeholderGroup || null;
+  const stakeholderKey = base.stakeholderGroupKey || base.stakeholder_group_key || row.stakeholder_group_key || (stakeholderGroup ? stakeholderGroupKey(stakeholderGroup) : null);
+  const statutoryBodyType = base.statutoryBodyType || base.statutory_body_type || row.statutory_body_type || row.statutoryBodyType || null;
+  const submittedAt = base.submittedAt || base.submitted_at || row.submitted_at || row.submittedAt || row.created_at || null;
+  return {
+    ...base,
+    id: base.id || row.id || null,
+    created_at: base.created_at || row.created_at || null,
+    stakeholderGroup,
+    stakeholder_group: stakeholderGroup,
+    stakeholderGroupKey: stakeholderKey,
+    stakeholder_group_key: stakeholderKey,
+    statutoryBodyType,
+    statutory_body_type: statutoryBodyType,
+    submittedAt,
+    submitted_at: submittedAt,
+    selected_factors: base.selected_factors || base.selectedFactors || [],
+    factor_ranking: base.factor_ranking || base.factorRanking || base.top_factor_ids || [],
+    derived_factor_weights: base.derived_factor_weights || base.derivedFactorWeights || {},
+    preferred_reuse_redevelopment_outcomes: base.preferred_reuse_redevelopment_outcomes || base.preferredReuseRedevelopmentOutcomes || {},
+    ratings: base.ratings || base.factorRatings || base.factor_ratings || {}
+  };
+}
 function surveySubmissionsForGroup(groupKey = state.surveyResultGroup) {
   return state.surveySubmissions.filter(submission => groupKey === 'All' || stakeholderGroupKey(submission.stakeholder_group_key || submission.stakeholder_group) === groupKey);
 }
@@ -488,7 +563,8 @@ function surveySubmissionPayload() {
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
     industrialOwnershipType: state.industrialOwnershipType || null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
-    projectInvolvement: state.projectInvolvement || null
+    projectInvolvement: state.projectInvolvement || null,
+    projectLocation: shouldAskProjectLocation() ? state.projectLocation || null : null
   };
   return {
     stakeholder_group: state.participantGroup,
@@ -497,6 +573,7 @@ function surveySubmissionPayload() {
     industrial_ownership_type: state.industrialOwnershipType || null,
     adaptive_reuse_knowledge: state.adaptiveReuseKnowledge || null,
     project_involvement: state.projectInvolvement || null,
+    project_location: shouldAskProjectLocation() ? state.projectLocation || null : null,
     selected_factors: selectedFactors,
     factor_ranking: factorRanking,
     derived_factor_weights: derivedWeights,
@@ -517,6 +594,7 @@ function surveySubmissionPayload() {
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
     projectInvolvement: state.projectInvolvement || null,
+    projectLocation: shouldAskProjectLocation() ? state.projectLocation || null : null,
     respondentProfile,
     submittedAt,
     ratings,
@@ -525,15 +603,59 @@ function surveySubmissionPayload() {
     preferred_reuse_outcomes: reuseOutcomeOptions.filter(option => Number(outcomeRatings[option.id]) >= 2).map(option => option.label)
   };
 }
+function buildSupabaseSubmissionPayload(response) {
+  return {
+    stakeholder_group: response.stakeholderGroup || response.stakeholder_group || null,
+    statutory_body_type: response.statutoryBodyType || response.statutory_body_type || null,
+    submitted_at: response.submittedAt || response.submitted_at || new Date().toISOString(),
+    response_data: response
+  };
+}
+function supabaseSubmissionPayloadAttempts(response) {
+  const summaryPayload = buildSupabaseSubmissionPayload(response);
+  return [
+    summaryPayload,
+    {
+      stakeholder_group: summaryPayload.stakeholder_group,
+      submitted_at: summaryPayload.submitted_at,
+      response_data: response
+    },
+    {
+      stakeholder_group: summaryPayload.stakeholder_group,
+      response_data: response
+    },
+    { response_data: response }
+  ];
+}
+function isUnknownSupabaseColumnError(error) {
+  return error && error.code === 'PGRST204';
+}
 async function saveSurveySubmission(payload) {
+  const surveyResponse = normaliseSurveySubmission(payload);
   if (!supabaseReady()) {
-    state.surveySubmissions.push({...payload, id: 'local-' + Date.now(), created_at: new Date().toISOString()});
+    state.surveySubmissions.push({...surveyResponse, id: 'local-' + Date.now(), created_at: new Date().toISOString()});
     state.surveySubmissionsLoaded = true;
     state.databaseStatus = 'Supabase is not configured. This submission is stored locally in this browser session only.';
     return { remote: false };
   }
-  const rows = await supabaseRequest('survey_submissions', { method: 'POST', body: payload });
-  state.surveySubmissions.unshift(rows[0] || payload);
+  const attempts = supabaseSubmissionPayloadAttempts(surveyResponse);
+  let lastError = null;
+  let rows = null;
+  let insertedPayload = attempts[0];
+  for (const attempt of attempts) {
+    try {
+      rows = await supabaseRequest('survey_submissions', { method: 'POST', body: attempt });
+      insertedPayload = attempt;
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!isUnknownSupabaseColumnError(error)) throw error;
+      console.warn('Supabase survey insert skipped a payload shape because the schema cache did not recognise a column.', error.details || error);
+    }
+  }
+  if (lastError) throw lastError;
+  state.surveySubmissions.unshift(normaliseSurveySubmission(rows && rows[0] ? rows[0] : {...insertedPayload, created_at: new Date().toISOString()}));
   state.surveySubmissionsLoaded = true;
   state.databaseStatus = 'Connected to Supabase. Survey data is stored in the database.';
   return { remote: true };
@@ -560,7 +682,7 @@ async function loadSupabaseData() {
       supabaseRequest('survey_submissions', { query: '?select=*&order=created_at.desc' }),
       supabaseRequest('stakeholder_suggested_factors', { query: '?select=*&order=created_at.desc' })
     ]);
-    state.surveySubmissions = submissions || [];
+    state.surveySubmissions = (submissions || []).map(normaliseSurveySubmission);
     state.surveySubmissionsLoaded = true;
     if (Array.isArray(suggestedFactors) && suggestedFactors.length) state.stakeholderFactors = suggestedFactors;
     state.databaseStatus = 'Connected to Supabase. Loaded ' + state.surveySubmissions.length + ' survey submission' + (state.surveySubmissions.length === 1 ? '' : 's') + '.';
@@ -602,6 +724,7 @@ function groupedFactorOptions(factors) {
 function surveyRating(factorId) { return state.surveyRatings[factorId] ?? 50; }
 function selectedTopFactorIds() { return state.surveyFactorRanking.slice(0, 3); }
 function selectedReuseOutcomes() { return reuseOutcomeOptions.filter(option => Object.prototype.hasOwnProperty.call(state.preferredReuseOutcomeRatings, option.id)).map(option => option.label); }
+function shouldAskProjectLocation(value = state.projectInvolvement) { return value === 'Yes, indirectly' || value === 'Yes, directly'; }
 function stakeholderGroupLabel(key) {
   const clean = String(key || '').trim();
   const match = stakeholderWeightGroups.find(group => group.key === clean || group.label === clean);
@@ -646,6 +769,12 @@ function questionnaireFactorPool() { return selectedSurveyFactors(); }
 function selectedQuestionnaireFactors() {
   const selectedIds = new Set(state.surveySelectedFactorIds);
   return questionnaireFactorPool().filter(factor => selectedIds.has(factor.id));
+}
+function factorRankingInSync(selected = selectedQuestionnaireFactors()) {
+  const selectedIds = selected.map(factor => factor.id);
+  if (state.surveyFactorRanking.length !== selectedIds.length) return false;
+  const rankedIds = new Set(state.surveyFactorRanking);
+  return selectedIds.every(id => rankedIds.has(id));
 }
 function derivedFactorWeightRows(selected = selectedQuestionnaireFactors()) {
   cleanQuestionnaireSelection();
@@ -1229,8 +1358,11 @@ function renderStakeholderBackgroundQuestions() {
   const statutoryQuestion = state.participantGroup === 'Statutory body'
     ? '<label>Is your statutory body primarily public-sector or private-sector related?<select id="statutoryBodyType"><option value="">Select answer</option>'+statutoryBodyTypeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>'
     : '';
+  const projectLocationQuestion = shouldAskProjectLocation()
+    ? '<label>Where was the adaptive reuse or redevelopment project located?<span class="field-helper">Optional. Select the main project location if applicable.</span><select id="projectLocation"><option value="">Select project location</option>'+projectLocationOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>'
+    : '';
   return statutoryQuestion + '<label>Do you have knowledge or experience related to adaptive reuse or redevelopment?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
-    '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>';
+    '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectLocationQuestion;
 }
 function renderOutcomeLikelihoodScale() {
   const rows = reuseOutcomeOptions.map(option => {
@@ -1254,7 +1386,8 @@ function renderSurveyReviewPanel(selected) {
   const outcomes = outcomeRatingsAsLabels().map(([label, value]) => '<li><strong>'+h(label)+'</strong><span>'+h(value)+'</span></li>').join('');
   const statutoryReview = state.participantGroup === 'Statutory body' ? '<div><dt>Statutory body type</dt><dd>'+h(state.statutoryBodyType || 'Not provided')+'</dd></div>' : '';
   const ownershipReview = state.participantGroup === 'Building owner / landlord' ? '<div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not provided')+'</dd></div>' : '';
-  return '<div class="survey-review-panel"><h3>Please review your response before final submission.</h3><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div></dl><h4>Selected factors and ranking</h4><ol class="review-ranking">'+ranked+'</ol><h4>Derived factor weights</h4><p class="map-note">Weights are automatically derived from the ranking. Rank 1 receives the highest weight.</p><ul class="review-ratings">'+derivedWeights+'</ul><h4>Preferred reuse / redevelopment outcome</h4><ul class="review-ratings">'+outcomes+'</ul><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
+  const projectLocationReview = shouldAskProjectLocation() ? '<div><dt>Project location</dt><dd>'+h(state.projectLocation || 'Not specified')+'</dd></div>' : '';
+  return '<div class="survey-review-panel"><h3>Please review your response before final submission.</h3><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'</dl><h4>Selected factors and ranking</h4><ol class="review-ranking">'+ranked+'</ol><h4>Derived factor weights</h4><p class="map-note">Weights are automatically derived from the ranking. Rank 1 receives the highest weight.</p><ul class="review-ratings">'+derivedWeights+'</ul><h4>Preferred reuse / redevelopment outcome</h4><ul class="review-ratings">'+outcomes+'</ul><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -1274,6 +1407,7 @@ function renderSurveyCriteria() {
     if (state.participantGroup !== 'Statutory body') state.statutoryBodyType = '';
     state.adaptiveReuseKnowledge = '';
     state.projectInvolvement = '';
+    state.projectLocation = '';
     setSurveyInProgress();
     renderSurveyCriteria();
   };
@@ -1309,6 +1443,16 @@ function renderSurveyCriteria() {
     projectInvolvement.value = state.projectInvolvement;
     projectInvolvement.onchange = e => {
       state.projectInvolvement = e.target.value;
+      if (!shouldAskProjectLocation()) state.projectLocation = '';
+      setSurveyInProgress();
+      renderSurveyCriteria();
+    };
+  }
+  const projectLocation = document.getElementById('projectLocation');
+  if (projectLocation) {
+    projectLocation.value = state.projectLocation;
+    projectLocation.onchange = e => {
+      state.projectLocation = e.target.value;
       setSurveyInProgress();
       updateSurveySummary();
     };
@@ -1380,43 +1524,64 @@ function renderSurveyCriteria() {
 function updateSurveySummary() {
   const status = document.getElementById('surveySubmitStatus');
   if (!status) return;
+  cleanQuestionnaireSelection();
   const selected = selectedQuestionnaireFactors();
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
   const missingBackground = !!state.participantGroup && (!state.adaptiveReuseKnowledge || !state.projectInvolvement);
-  const missingFactors = selected.length < minSurveyFactors || selected.length > maxSurveyFactors;
+  const tooFewFactors = selected.length < minSurveyFactors;
+  const tooManyFactors = selected.length > maxSurveyFactors;
+  const rankingMismatch = selected.length >= minSurveyFactors && selected.length <= maxSurveyFactors && !factorRankingInSync(selected);
   const missingOutcomeLikelihoods = !outcomeRatingsComplete();
-  const reuseOutcomes = selectedReuseOutcomes();
   const participantMessage = !state.participantGroup
-    ? 'Stakeholder group is required.'
+    ? 'Please select your stakeholder group.'
     : state.participantGroup === 'Statutory body' && !state.statutoryBodyType
-      ? 'Statutory body type is required.'
+      ? 'Please answer the statutory body follow-up question.'
       : state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType
-      ? 'Building owner / landlord requires ownership type.'
+      ? 'Please select the ownership type.'
       : '';
-  const rankedNames = state.surveyFactorRanking.map((id, index) => {
-    const factor = selected.find(item => item.id === id);
-    return factor ? '<li><strong>Rank '+(index + 1)+'</strong>'+h(factor.factor_name)+'</li>' : '';
-  }).filter(Boolean).join('');
-  const message = state.surveySubmitted
-    ? '<strong>Thank you. Your survey response has been submitted.</strong><span>'+h(selected.length)+' selected factors, full ranking and derived factor weights recorded.</span><span>'+h(state.databaseStatus)+'</span><span>Stakeholder group: '+h(state.participantGroup)+(state.statutoryBodyType ? ' - '+h(state.statutoryBodyType) : '')+(state.industrialOwnershipType ? ' - '+h(state.industrialOwnershipType) : '')+'</span><span>Preferred reuse / redevelopment outcomes selected: '+h(reuseOutcomes.length)+'. Unticked outcomes recorded as Not likely.</span><button id="seeSurveyResults" class="primary-button" type="button">See results</button>'
-    : state.surveyReviewOpen
-      ? '<strong>Review response</strong><span>Please review your response before final submission.</span>'
-      : '<strong>Survey in progress</strong><span>Select 5 to 10 key factors, then rank all selected factors. Factor weights are automatically calculated from your ranking.</span><span>'+h(reuseOutcomes.length)+' reuse / redevelopment outcome'+(reuseOutcomes.length === 1 ? '' : 's')+' selected for likelihood follow-up. Unticked outcomes count as Not likely.</span><span>'+h(state.databaseStatus)+'</span>';
-  status.className = 'survey-submit-status' + (state.surveySubmitted ? ' submitted' : '') + (missingParticipant || missingBackground || missingFactors || missingOutcomeLikelihoods ? ' has-error' : '');
-  status.innerHTML = message + (missingParticipant ? '<span>'+h(participantMessage)+'</span>' : '') + (missingBackground ? '<span>Please complete the stakeholder background questions before submitting.</span>' : '') + (missingFactors ? '<span>Please select between 5 and 10 factors before ranking them.</span>' : '') + (missingOutcomeLikelihoods ? '<span>Please choose a likelihood level for each selected reuse / redevelopment outcome.</span>' : '') + (rankedNames && !state.surveyReviewOpen ? '<ol>'+rankedNames+'</ol>' : '');
+  let message = '';
+  let type = '';
+  if (state.surveySubmitted) {
+    message = 'Thank you. Your survey response has been submitted.';
+    type = 'submitted';
+  } else if (missingParticipant) {
+    message = participantMessage;
+    type = 'has-error';
+  } else if (missingBackground) {
+    message = 'Please complete the stakeholder background questions before submitting.';
+    type = 'has-error';
+  } else if (tooFewFactors) {
+    message = 'Please select 5 to 10 key factors before ranking.';
+    type = 'has-error';
+  } else if (tooManyFactors) {
+    message = 'You can select up to 10 key factors only.';
+    type = 'has-error';
+  } else if (rankingMismatch) {
+    message = 'Please rank all selected factors before submitting.';
+    type = 'has-error';
+  } else if (missingOutcomeLikelihoods) {
+    message = 'Please choose a likelihood level for each selected reuse / redevelopment outcome.';
+    type = 'has-error';
+  } else if (state.surveyReviewOpen) {
+    message = 'Please review your response before final submission.';
+  } else {
+    message = 'You can now review your response before submission.';
+  }
+  status.className = 'survey-submit-status' + (type ? ' ' + type : '');
+  status.innerHTML = '<strong>'+h(message)+'</strong>' + (state.surveySubmitted ? '<button id="seeSurveyResults" class="primary-button" type="button">See results</button>' : '');
   const seeResultsButton = document.getElementById('seeSurveyResults');
   if (seeResultsButton) seeResultsButton.onclick = () => activateTab('survey-results');
 }
 function submitSurvey() {
-  const status = document.getElementById('surveySubmitStatus');
+  cleanQuestionnaireSelection();
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
   const missingBackground = !!state.participantGroup && (!state.adaptiveReuseKnowledge || !state.projectInvolvement);
   const missingOutcomeLikelihoods = !outcomeRatingsComplete();
   const selected = selectedQuestionnaireFactors();
-  if (missingParticipant || missingBackground || missingOutcomeLikelihoods || selected.length < minSurveyFactors || selected.length > maxSurveyFactors) {
+  const rankingMismatch = selected.length >= minSurveyFactors && selected.length <= maxSurveyFactors && !factorRankingInSync(selected);
+  if (missingParticipant || missingBackground || missingOutcomeLikelihoods || rankingMismatch || selected.length < minSurveyFactors || selected.length > maxSurveyFactors) {
     setSurveyInProgress();
     updateSurveySummary();
-    if (status && (selected.length < minSurveyFactors || selected.length > maxSurveyFactors)) status.insertAdjacentHTML('beforeend', '<span>Please select between 5 and 10 factors before ranking them.</span>');
     return;
   }
   state.surveyReviewOpen = true;
@@ -1446,11 +1611,11 @@ async function confirmSurveySubmissionHandler() {
     renderSurveyResults();
     renderSurveyCriteria();
   } catch (error) {
-    console.error(error);
+    console.error('Survey submission failed', error.details || error);
     state.surveySubmitted = false;
     state.databaseStatus = 'Survey could not be saved to Supabase. Check the browser console, database policies and row-level security settings.';
     updateSurveySummary();
-    if (status) status.insertAdjacentHTML('beforeend', '<span>Save failed: '+h(error.message || error)+'</span>');
+    if (status) status.insertAdjacentHTML('beforeend', '<span>Submission could not be saved. Please try again or contact the project team.</span>');
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
@@ -2005,10 +2170,10 @@ async function addStakeholderFactor() {
     ['stakeholderFactorName','stakeholderSuggestedBy','stakeholderComment'].forEach(id => document.getElementById(id).value = '');
     renderResearchWorkflow();
   } catch (error) {
-    console.error(error);
+    console.error('Suggested factor submission failed', error.details || error);
     state.databaseStatus = 'Suggested factor could not be saved to Supabase. Check config and row-level security policies.';
     renderResearchWorkflow();
-    window.alert('Save failed: ' + (error.message || error));
+    window.alert('Suggested factor could not be saved. Please try again or contact the project team.');
   } finally {
     if (button) {
       button.disabled = false;
