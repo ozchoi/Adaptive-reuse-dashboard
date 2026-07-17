@@ -7,18 +7,23 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="participant-view">
   <header class="app-header">
     <div class="header-copy">
       <div class="header-meta">
-        <h1>Hong Kong Industrial Building Reuse Suitability Dashboard</h1>
+        <h1 id="appTitle">Hong Kong Industrial Building Reuse Suitability Dashboard</h1>
       </div>
-      <p class="lede">An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.</p>
+      <p id="appSubtitle" class="lede">An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.</p>
       <button id="headerDescriptionToggle" class="text-link-button" type="button" aria-controls="headerDescription" aria-expanded="false">See more</button>
       <div id="headerDescription" class="header-description" aria-hidden="true">
         <p>This dashboard provides a prototype decision-support model for identifying vacant or underused industrial buildings with potential for residential adaptive reuse in Hong Kong. Suitability scores combine planning, lease, ownership, safety, building adaptability, transport, district capacity, neighbourhood compatibility, economic feasibility and policy implementation factors. Scores are intended for early-stage screening only and should be verified through site inspection, statutory planning review, lease assessment, fire safety audit, environmental screening and cost feasibility study.</p>
       </div>
-      <p class="credit">Academic research prototype. Outputs are indicative and subject to verification.</p>
+      <p id="appCredit" class="credit">Academic research prototype. Outputs are indicative and subject to verification.</p>
+      <div class="access-controls" aria-live="polite">
+        <button id="projectTeamAccess" class="access-link" type="button">Project team access</button>
+        <button id="lockTeamAccess" class="access-link" type="button" hidden>Return to participant view</button>
+        <span id="accessStateMessage" class="access-state-message"></span>
+      </div>
     </div>
     <div class="header-actions">
       <button id="resetFilters" class="ghost-button" type="button">Reset filters</button>
@@ -243,6 +248,19 @@
       </section>
     </section>
   </main>
+  <div id="teamAccessModal" class="access-modal" hidden aria-hidden="true">
+    <div class="access-modal-backdrop" data-close-access-modal></div>
+    <form id="teamAccessForm" class="access-dialog" role="dialog" aria-modal="true" aria-labelledby="teamAccessTitle">
+      <h2 id="teamAccessTitle">Enter project team access code</h2>
+      <label>Access code<input id="teamAccessCode" type="password" autocomplete="off" /></label>
+      <p id="teamAccessMessage" class="access-message" aria-live="polite"></p>
+      <div class="access-dialog-actions">
+        <button class="primary-button" type="submit">Unlock</button>
+        <button id="cancelTeamAccess" class="ghost-button" type="button">Cancel</button>
+      </div>
+      <p class="access-disclaimer">This is a soft interface lock for a static GitHub Pages site, not secure authentication.</p>
+    </form>
+  </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>

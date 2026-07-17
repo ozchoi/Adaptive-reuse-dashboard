@@ -267,10 +267,22 @@ const defaultMapLayers = { buildings: true, catchment: true, facilities: true, m
 const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All', risk: 'All', minStoreys: 0, minScore: 0 };
 const minSurveyFactors = 5;
 const maxSurveyFactors = 10;
+const TEAM_ACCESS_CODE = 'CHANGE_THIS_CODE';
+const TEAM_ACCESS_STORAGE_KEY = 'adaptiveReuseTeamAccess';
+function storedTeamAccessUnlocked() {
+  try { return window.localStorage.getItem(TEAM_ACCESS_STORAGE_KEY) === 'true'; }
+  catch (error) { return false; }
+}
+function writeStoredTeamAccess(unlocked) {
+  try {
+    if (unlocked) window.localStorage.setItem(TEAM_ACCESS_STORAGE_KEY, 'true');
+    else window.localStorage.removeItem(TEAM_ACCESS_STORAGE_KEY);
+  } catch (error) {}
+}
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research' };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -1159,8 +1171,86 @@ function setSurveyInProgress() {
   state.surveyReviewOpen = false;
   updateSurveyResultAccess();
 }
+function teamAccessUnlocked() { return !!state.teamAccessUnlocked; }
+function tabAllowedByAccess(tabName) {
+  if (!teamAccessUnlocked()) return tabName === 'survey';
+  return true;
+}
+function setAccessStateMessage(message, type = '') {
+  const el = document.getElementById('accessStateMessage');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = 'access-state-message' + (type ? ' ' + type : '');
+  if (message) window.setTimeout(() => {
+    if (el.textContent === message) el.textContent = '';
+  }, 4500);
+}
+function renderAccessState() {
+  const unlocked = teamAccessUnlocked();
+  document.body.classList.toggle('participant-view', !unlocked);
+  document.body.classList.toggle('team-access-unlocked', unlocked);
+  const title = document.getElementById('appTitle');
+  const subtitle = document.getElementById('appSubtitle');
+  const credit = document.getElementById('appCredit');
+  if (title) title.textContent = unlocked ? 'Hong Kong Industrial Building Reuse Suitability Dashboard' : 'Adaptive Reuse Stakeholder Questionnaire';
+  if (subtitle) subtitle.textContent = unlocked
+    ? 'An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.'
+    : 'Please complete this questionnaire to share your views on industrial-building reuse and redevelopment outcomes.';
+  if (credit) credit.textContent = unlocked
+    ? 'Academic research prototype. Outputs are indicative and subject to verification.'
+    : 'This questionnaire is for academic research purposes. Responses will be treated with confidentiality.';
+  const descriptionToggle = document.getElementById('headerDescriptionToggle');
+  const description = document.getElementById('headerDescription');
+  if (descriptionToggle) descriptionToggle.hidden = !unlocked;
+  if (!unlocked && description) {
+    description.classList.remove('is-open');
+    description.setAttribute('aria-hidden', 'true');
+    if (descriptionToggle) descriptionToggle.setAttribute('aria-expanded', 'false');
+  }
+  const accessButton = document.getElementById('projectTeamAccess');
+  const lockButton = document.getElementById('lockTeamAccess');
+  if (accessButton) accessButton.hidden = unlocked;
+  if (lockButton) lockButton.hidden = !unlocked;
+}
+function closeTeamAccessModal() {
+  const modal = document.getElementById('teamAccessModal');
+  const message = document.getElementById('teamAccessMessage');
+  const input = document.getElementById('teamAccessCode');
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  if (message) message.textContent = '';
+  if (input) input.value = '';
+}
+function openTeamAccessModal() {
+  const modal = document.getElementById('teamAccessModal');
+  const input = document.getElementById('teamAccessCode');
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  if (input) window.setTimeout(() => input.focus(), 0);
+}
+function unlockTeamAccess() {
+  state.teamAccessUnlocked = true;
+  writeStoredTeamAccess(true);
+  renderAccessState();
+  updateViewModeTabs();
+  openInitialTab();
+  setAccessStateMessage('Full dashboard access unlocked.', 'success');
+}
+function lockTeamAccess() {
+  state.teamAccessUnlocked = false;
+  state.viewMode = 'research';
+  writeStoredTeamAccess(false);
+  if (window.location.hash && window.location.hash !== '#survey') window.history.replaceState(null, '', '#survey');
+  renderAccessState();
+  updateViewModeTabs();
+  activateTab('survey');
+  setAccessStateMessage('Returned to participant view.', 'success');
+}
 function activateTab(tabName) {
-  if (tabName === 'survey-results' && !state.surveyResultsUnlocked) return;
+  if (!tabAllowedByAccess(tabName)) tabName = 'survey';
+  if (tabName === 'survey-results' && !teamAccessUnlocked() && !state.surveyResultsUnlocked) return;
   document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
   const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
   const panel = document.getElementById(tabName);
@@ -1176,30 +1266,39 @@ function updateSurveyResultAccess() {
   const resultTab = document.querySelector('.tab[data-tab="survey-results"]');
   if (!resultTab) return;
   const modeHidden = resultTab.dataset.mode !== state.viewMode;
-  resultTab.hidden = modeHidden || !state.surveyResultsUnlocked;
-  resultTab.disabled = !state.surveyResultsUnlocked;
-  resultTab.setAttribute('aria-hidden', String(!state.surveyResultsUnlocked));
-  if (!state.surveyResultsUnlocked && document.getElementById('survey-results')?.classList.contains('active')) activateTab('survey');
+  const hiddenByAccess = !teamAccessUnlocked();
+  const hiddenBySurveyFlow = !teamAccessUnlocked() && !state.surveyResultsUnlocked;
+  resultTab.hidden = hiddenByAccess || modeHidden || hiddenBySurveyFlow;
+  resultTab.disabled = hiddenByAccess || hiddenBySurveyFlow;
+  resultTab.setAttribute('aria-hidden', String(resultTab.hidden));
+  if ((hiddenByAccess || hiddenBySurveyFlow) && document.getElementById('survey-results')?.classList.contains('active')) activateTab('survey');
 }
 function updateViewModeTabs() {
-  document.body.classList.toggle('research-mode', state.viewMode === 'research');
+  if (!teamAccessUnlocked()) state.viewMode = 'research';
+  renderAccessState();
+  document.body.classList.toggle('research-mode', state.viewMode === 'research' || !teamAccessUnlocked());
   document.querySelectorAll('[data-view-mode]').forEach(button => {
     button.classList.toggle('active', button.dataset.viewMode === state.viewMode);
   });
   document.querySelectorAll('.tab[data-mode]').forEach(tab => {
-    tab.hidden = tab.dataset.mode !== state.viewMode;
+    tab.hidden = !teamAccessUnlocked() ? tab.dataset.tab !== 'survey' : tab.dataset.mode !== state.viewMode;
   });
   updateSurveyResultAccess();
   const activeTab = document.querySelector('.tab.active');
+  if (!teamAccessUnlocked()) {
+    activateTab('survey');
+    return;
+  }
   if (!activeTab || activeTab.hidden) activateTab(state.viewMode === 'decision' ? 'overview' : 'survey');
 }
 function validTabNameFromHash() {
   const tabName = decodeURIComponent((window.location.hash || '').replace(/^#/, '')).trim();
   if (!tabName) return '';
+  if (!tabAllowedByAccess(tabName)) return '';
   const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
   const panel = document.getElementById(tabName);
   if (!tab || !panel) return '';
-  if (tabName === 'survey-results' && !state.surveyResultsUnlocked) return '';
+  if (tabName === 'survey-results' && !teamAccessUnlocked() && !state.surveyResultsUnlocked) return '';
   return tabName;
 }
 function openInitialTab() {
@@ -1571,7 +1670,7 @@ function updateSurveySummary() {
     message = 'You can now review your response before submission.';
   }
   status.className = 'survey-submit-status' + (type ? ' ' + type : '');
-  status.innerHTML = '<strong>'+h(message)+'</strong>' + (state.surveySubmitted ? '<button id="seeSurveyResults" class="primary-button" type="button">See results</button>' : '');
+  status.innerHTML = '<strong>'+h(message)+'</strong>' + (state.surveySubmitted && teamAccessUnlocked() ? '<button id="seeSurveyResults" class="primary-button" type="button">See results</button>' : '');
   const seeResultsButton = document.getElementById('seeSurveyResults');
   if (seeResultsButton) seeResultsButton.onclick = () => activateTab('survey-results');
 }
@@ -2095,6 +2194,35 @@ function syncFilterControls() {
   document.getElementById('maxStoreysValue').textContent = state.filters.maxStoreys;
   document.getElementById('maxMtrValue').textContent = state.filters.maxMtr;
 }
+function bindTeamAccessControls() {
+  const accessButton = document.getElementById('projectTeamAccess');
+  const lockButton = document.getElementById('lockTeamAccess');
+  const cancelButton = document.getElementById('cancelTeamAccess');
+  const form = document.getElementById('teamAccessForm');
+  const message = document.getElementById('teamAccessMessage');
+  if (accessButton) accessButton.onclick = openTeamAccessModal;
+  if (lockButton) lockButton.onclick = lockTeamAccess;
+  if (cancelButton) cancelButton.onclick = closeTeamAccessModal;
+  document.querySelectorAll('[data-close-access-modal]').forEach(button => button.onclick = closeTeamAccessModal);
+  if (form) form.onsubmit = event => {
+    event.preventDefault();
+    const input = document.getElementById('teamAccessCode');
+    if (input && input.value === TEAM_ACCESS_CODE) {
+      closeTeamAccessModal();
+      unlockTeamAccess();
+      return;
+    }
+    if (message) message.textContent = 'Incorrect access code.';
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    activateTab('survey');
+  };
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeTeamAccessModal();
+  });
+}
 function init() {
   state.weights = finalResearchWeights();
   state.researchWeights = state.weights.slice();
@@ -2107,6 +2235,7 @@ function init() {
   document.getElementById('stakeholderDimension').innerHTML = researchDimensions.map(([key,label]) => '<option value="'+h(key)+'">'+h(label)+'</option>').join('');
   renderCompareControls();
   bindHeaderDescriptionToggle();
+  bindTeamAccessControls();
   document.getElementById('scenarioButtons').innerHTML = Object.entries(scenarios).map(([k,s]) => '<button data-scenario="'+k+'">'+h(s.label)+'<small>'+h(s.summary)+'</small></button>').join('');
   document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => {
     state.scenario = btn.dataset.scenario;
@@ -2139,7 +2268,10 @@ function init() {
   render();
   window.addEventListener('hashchange', () => {
     const tabName = validTabNameFromHash();
-    if (!tabName) return;
+    if (!tabName) {
+      if (!teamAccessUnlocked()) activateTab('survey');
+      return;
+    }
     const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
     if (tab?.dataset.mode) state.viewMode = tab.dataset.mode;
     updateViewModeTabs();
