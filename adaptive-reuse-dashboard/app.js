@@ -310,7 +310,7 @@ function writeStoredTeamAccess(unlocked) {
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireResultsError: false, baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsError: false, baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -847,6 +847,39 @@ async function loadSurveySubmissions(options = {}) {
   if (renderAfter) render();
   return state.surveySubmissions;
 }
+function showQuestionnaireResultsMessage(message, type = '') {
+  const status = document.getElementById('questionnaireResultsStatus');
+  if (!status) return;
+  status.textContent = message || '';
+  status.className = 'map-note results-message' + (type ? ' ' + type : '');
+}
+async function removeSurveySubmission(submissionId) {
+  if (!teamAccessUnlocked()) return;
+  if (!submissionId || String(submissionId).startsWith('submission-') || String(submissionId).startsWith('local-')) {
+    showQuestionnaireResultsMessage('This submission cannot be removed because it has no valid ID.', 'error');
+    return false;
+  }
+  if (!supabaseReady()) {
+    showQuestionnaireResultsMessage('Submission could not be removed. Please try again.', 'error');
+    return false;
+  }
+  try {
+    await supabaseRequest('survey_submissions', {
+      method: 'DELETE',
+      query: '?id=eq.' + encodeURIComponent(submissionId),
+      prefer: 'return=minimal'
+    });
+    state.surveySubmissions = state.surveySubmissions.filter(submission => String(submission.id) !== String(submissionId));
+    showQuestionnaireResultsMessage('Submission removed.', 'success');
+    await loadSurveySubmissions({ renderAfter: false });
+    renderQuestionnaireResults();
+    return true;
+  } catch (error) {
+    console.error('Failed to remove submission:', error.details || error);
+    showQuestionnaireResultsMessage('Submission could not be removed. Please try again.', 'error');
+    return false;
+  }
+}
 async function loadSupabaseData() {
   if (!supabaseReady()) {
     state.databaseStatus = 'Using local pilot data until the Supabase project URL and anon key are added in `supabase-config.js`.';
@@ -1243,7 +1276,7 @@ function renderQuestionnaireResults() {
     kpiEl.innerHTML = '';
     return;
   }
-  if (status) status.textContent = state.surveySubmissionsLoaded ? 'Loaded questionnaire submissions from the survey_submissions table.' : 'Questionnaire submissions will load after team access is unlocked.';
+  if (status && !status.textContent) status.textContent = state.surveySubmissionsLoaded ? '' : 'Questionnaire results could not be loaded. Please try again later.';
   const filtered = questionnaireFilteredSubmissions();
   const summary = questionnaireSummary(filtered);
   kpiEl.innerHTML = [
@@ -1312,8 +1345,9 @@ function renderQuestionnaireSubmissionTable(submissions) {
     table.innerHTML = '<tbody><tr><td><div class="empty-state">No questionnaire submissions match these filters.</div></td></tr></tbody>';
     return;
   }
-  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project location</th><th>Selected factors</th><th>Top-ranked factor</th><th>Top supported outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(notSpecified(submission.projectLocation || submission.project_location))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button></td></tr>').join('') + '</tbody>';
+  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project location</th><th>Selected factors</th><th>Top-ranked factor</th><th>Top supported outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(notSpecified(submission.projectLocation || submission.project_location))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><div class="row-actions"><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button>'+(teamAccessUnlocked() ? '<button class="ghost-button mini-button warning-button" data-questionnaire-remove="'+h(submissionDisplayId(submission, index))+'" type="button">Remove</button>' : '')+'</div></td></tr>').join('') + '</tbody>';
   document.querySelectorAll('[data-questionnaire-detail]').forEach(button => button.onclick = e => openQuestionnaireSubmissionDetail(e.currentTarget.dataset.questionnaireDetail));
+  document.querySelectorAll('[data-questionnaire-remove]').forEach(button => button.onclick = e => openQuestionnaireRemoveModal(e.currentTarget.dataset.questionnaireRemove));
 }
 function openQuestionnaireSubmissionDetail(id) {
   const submissions = questionnaireFilteredSubmissions();
@@ -1340,6 +1374,46 @@ function closeQuestionnaireSubmissionDetail() {
   detail.hidden = true;
   detail.setAttribute('aria-hidden', 'true');
   detail.innerHTML = '';
+}
+function openQuestionnaireRemoveModal(id) {
+  if (!teamAccessUnlocked()) return;
+  const submissions = questionnaireFilteredSubmissions();
+  const submission = submissions.find((item, index) => submissionDisplayId(item, index) === id);
+  if (!submission) return;
+  state.questionnaireRemoveId = id;
+  state.questionnaireRemoving = false;
+  renderQuestionnaireRemoveModal(submission);
+}
+function renderQuestionnaireRemoveModal(submission) {
+  const modal = document.getElementById('questionnaireRemoveModal');
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  const removing = state.questionnaireRemoving;
+  modal.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-remove></div><article class="submission-detail-card remove-dialog" role="dialog" aria-modal="true" aria-labelledby="questionnaireRemoveTitle"><h2 id="questionnaireRemoveTitle">Remove questionnaire submission?</h2><p>This action will remove this questionnaire submission from the results table. This cannot be undone.</p><dl class="detail-grid"><div><dt>Submission time</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div><div><dt>Selected factors count</dt><dd>'+h(normalizedSelectedFactorIds(submission).length)+'</dd></div></dl><div class="access-dialog-actions"><button class="ghost-button" data-close-questionnaire-remove type="button" '+(removing ? 'disabled' : '')+'>Cancel</button><button class="primary-button danger-button" id="confirmQuestionnaireRemove" type="button" '+(removing ? 'disabled' : '')+'>'+h(removing ? 'Removing...' : 'Confirm remove')+'</button></div></article>';
+  modal.querySelectorAll('[data-close-questionnaire-remove]').forEach(button => button.onclick = closeQuestionnaireRemoveModal);
+  const confirm = document.getElementById('confirmQuestionnaireRemove');
+  if (confirm) confirm.onclick = () => confirmQuestionnaireRemove(submission);
+}
+function closeQuestionnaireRemoveModal() {
+  const modal = document.getElementById('questionnaireRemoveModal');
+  state.questionnaireRemoveId = null;
+  state.questionnaireRemoving = false;
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  modal.innerHTML = '';
+}
+async function confirmQuestionnaireRemove(submission) {
+  if (!teamAccessUnlocked() || state.questionnaireRemoving) return;
+  state.questionnaireRemoving = true;
+  renderQuestionnaireRemoveModal(submission);
+  const removed = await removeSurveySubmission(submission.id);
+  if (removed) closeQuestionnaireRemoveModal();
+  else {
+    state.questionnaireRemoving = false;
+    renderQuestionnaireRemoveModal(submission);
+  }
 }
 function exportQuestionnaireResultsCsv() {
   const submissions = questionnaireFilteredSubmissions();
@@ -1689,6 +1763,7 @@ function lockTeamAccess() {
   state.teamAccessUnlocked = false;
   state.viewMode = 'research';
   closeQuestionnaireSubmissionDetail();
+  closeQuestionnaireRemoveModal();
   writeStoredTeamAccess(false);
   if (window.location.hash && window.location.hash !== '#survey') window.history.replaceState(null, '', '#survey');
   renderAccessState();
@@ -2787,6 +2862,7 @@ function init() {
   });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') closeQuestionnaireSubmissionDetail();
+    if (event.key === 'Escape') closeQuestionnaireRemoveModal();
   });
   loadSupabaseData();
 }
