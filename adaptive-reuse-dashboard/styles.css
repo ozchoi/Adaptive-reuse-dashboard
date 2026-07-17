@@ -209,15 +209,14 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .factor-choice-group { display: grid; align-content: start; gap: 10px; min-width: 0; padding: 10px; border: 1px solid #dbe6f3; border-radius: 8px; background: #f8fafc; box-shadow: inset 0 1px 0 rgba(255,255,255,0.86); }
 .factor-choice-group h4 { margin: 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; color: #334155; font-size: 12px; line-height: 1.25; }
 .factor-choice-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.factor-choice-card { position: relative; display: grid; gap: 8px; min-width: 0; min-height: 154px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease; }
+.factor-choice-card { position: relative; display: grid; gap: 9px; min-width: 0; min-height: 96px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease; }
 .factor-choice-card:hover { border-color: #99f6e4; box-shadow: 0 10px 22px rgba(15, 118, 110, 0.08); transform: translateY(-1px); }
 .factor-choice-card:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.22); outline-offset: 2px; }
 .factor-choice-card.selected { border-color: var(--teal); background: var(--green-soft); box-shadow: 0 10px 24px rgba(15, 118, 110, 0.12), inset 0 0 0 1px var(--teal); }
 .factor-choice-card.disabled:not(.selected) { cursor: not-allowed; opacity: 0.58; }
 .factor-choice-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
-.factor-choice-head strong { color: var(--ink); font-size: 13px; line-height: 1.22; }
+.factor-choice-head strong { color: var(--ink); font-size: 14px; line-height: 1.24; }
 .factor-selected-badge { width: fit-content; border-radius: 999px; padding: 3px 7px; background: var(--teal); color: #fff; font-size: 10px; font-weight: 900; white-space: nowrap; }
-.factor-choice-card p { margin: 0; color: #334155; font-size: 12px; line-height: 1.4; }
 .factor-detail-toggle { justify-self: start; align-self: end; margin: 0; }
 .factor-detail { display: none; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; color: #334155; font-size: 13px; line-height: 1.5; }
 .factor-detail.is-open { display: block; }

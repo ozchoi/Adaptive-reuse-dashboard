@@ -267,7 +267,7 @@ const defaultMapLayers = { buildings: true, catchment: true, facilities: true, m
 const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All', risk: 'All', minStoreys: 0, minScore: 0 };
 const minSurveyFactors = 5;
 const maxSurveyFactors = 10;
-const TEAM_ACCESS_CODE = 'CHANGE_THIS_CODE';
+const TEAM_ACCESS_CODE = 'reuse$2026';
 const TEAM_ACCESS_STORAGE_KEY = 'adaptiveReuseTeamAccess';
 function storedTeamAccessUnlocked() {
   try { return window.localStorage.getItem(TEAM_ACCESS_STORAGE_KEY) === 'true'; }
@@ -1444,7 +1444,8 @@ function renderQuestionnaireFactorTable(pool) {
       const isSelected = state.surveySelectedFactorIds.includes(factor.id);
       const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= maxSurveyFactors;
       const isExpanded = state.expandedSurveyFactorIds.includes(factor.id);
-      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong>'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'</div><p>'+explainTerms(surveySummaryText(factor))+'</p><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
+      const detailId = 'factor-detail-' + factor.id;
+      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong>'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'</div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
     }).join('') + '</div></section>';
   }).join('');
   const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
