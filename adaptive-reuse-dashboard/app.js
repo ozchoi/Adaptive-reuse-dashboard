@@ -563,7 +563,7 @@ function surveySubmissionPayload() {
   const selected = selectedQuestionnaireFactors();
   const derivedWeights = derivedFactorWeights(selected);
   const derivedRawScores = derivedFactorRawScores(selected);
-  const ratings = Object.fromEntries(Object.entries(derivedWeights).map(([id, weight]) => [id, Math.round(weight * 100)]));
+  const ratings = sliderDerivedRawScores(selected);
   const outcomeRatings = outcomeRatingsForSubmission();
   const selectedOutcomeIds = reuseOutcomeOptions.filter(option => Number(state.preferredReuseOutcomeRatings[option.id]) >= 2).map(option => option.id);
   const topThree = factorRanking.slice(0, 3);
@@ -804,11 +804,22 @@ function derivedFactorWeightRows(selected = selectedQuestionnaireFactors()) {
     return { factor, id, rank: index + 1, rawScore, weight, percent: weight * 100 };
   }).filter(row => row.factor);
 }
+function factorRatingRows(selected = selectedQuestionnaireFactors()) {
+  return selected.map(factor => ({ factor, id: factor.id, rating: Number(surveyRating(factor.id)) })).filter(row => Number.isFinite(row.rating));
+}
+function sliderDerivedFactorWeights(selected = selectedQuestionnaireFactors()) {
+  const rows = factorRatingRows(selected);
+  const total = rows.reduce((sum, row) => sum + Math.max(0, row.rating), 0) || rows.length || 1;
+  return Object.fromEntries(rows.map(row => [row.id, Number((Math.max(0, row.rating) / total).toFixed(6))]));
+}
+function sliderDerivedRawScores(selected = selectedQuestionnaireFactors()) {
+  return Object.fromEntries(factorRatingRows(selected).map(row => [row.id, row.rating]));
+}
 function derivedFactorWeights(selected = selectedQuestionnaireFactors()) {
-  return Object.fromEntries(derivedFactorWeightRows(selected).map(row => [row.id, Number(row.weight.toFixed(6))]));
+  return sliderDerivedFactorWeights(selected);
 }
 function derivedFactorRawScores(selected = selectedQuestionnaireFactors()) {
-  return Object.fromEntries(derivedFactorWeightRows(selected).map(row => [row.id, row.rawScore]));
+  return sliderDerivedRawScores(selected);
 }
 function cleanQuestionnaireSelection() {
   const validIds = new Set(questionnaireFactorPool().map(factor => factor.id));
@@ -1437,7 +1448,7 @@ function renderQuestionnaireFactorTable(pool) {
     }).join('') + '</div></section>';
   }).join('');
   const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
-  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider important for assessing industrial-to-residential adaptive reuse suitability. Then rank all selected factors from most important to least important.</p>'+limitMessage+'<div class="factor-choice-layout">'+cards+'</div></div>';
+  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider important for assessing industrial-to-residential adaptive reuse suitability. Then rank all selected factors and use slider bars to rate their importance.</p>'+limitMessage+'<div class="factor-choice-layout">'+cards+'</div></div>';
 }
 function renderRankingList(selected) {
   const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
@@ -1450,10 +1461,12 @@ function renderRankingList(selected) {
     : '<div class="empty-state">Select between 5 and 10 factors to create the ranking list.</div>';
   return '<div class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Drag to reorder the selected factors. Rank 1 means the most important factor.</p>'+(items ? '<div class="ranking-list">'+items+'</div>' : emptyMessage)+'</div>';
 }
-function renderDerivedFactorWeights(selected) {
-  const rows = derivedFactorWeightRows(selected);
-  if (!rows.length) return '<div class="derived-weight-panel"><div class="selection-heading"><strong>Derived factor weights</strong><span>Automatic</span></div><p class="map-note">Factor weights are automatically calculated from your ranking. Rank 1 receives the highest weight.</p><div class="empty-state">Select and rank 5 to 10 factors to preview derived weights.</div></div>';
-  return '<div class="derived-weight-panel"><div class="selection-heading"><strong>Derived factor weights</strong><span>Total 100%</span></div><p class="map-note">Factor weights are automatically calculated from your ranking. Rank 1 receives the highest weight.</p><div class="derived-weight-list">' + rows.map(row => '<div><span>'+h(row.rank)+'</span><strong>'+explainTerms(row.factor.factor_name)+'</strong><em>Raw score '+h(row.rawScore)+'</em><b>'+h(row.percent.toFixed(1))+'%</b></div>').join('') + '</div></div>';
+function renderImportanceSliders(selected) {
+  if (!selected.length) return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>0-100 slider</span></div><p class="map-note">Select between 5 and 10 factors first. Slider bars will appear here for the factors you selected.</p><div class="empty-state">Select factors to rate their importance.</div></div>';
+  return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>'+h(selected.length)+' sliders</span></div><p class="map-note">Use the slider bars to rate the importance of each selected factor from 0 to 100.</p><div class="importance-slider-list">' + selected.map(factor => {
+    const value = surveyRating(factor.id);
+    return '<label class="importance-slider-row"><span><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em><b>'+h(value)+'/100</b></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(value)+'" /><div class="slider-scale"><small>0 Not important</small><small>50 Moderate</small><small>100 Very important</small></div></label>';
+  }).join('') + '</div></div>';
 }
 function renderStakeholderBackgroundQuestions() {
   if (!state.participantGroup) return '';
@@ -1484,12 +1497,12 @@ function renderSurveyReviewPanel(selected) {
     const factor = selected.find(item => item.id === id);
     return factor ? '<li><strong>'+h(index + 1)+'.</strong> '+h(factor.factor_name)+'</li>' : '';
   }).filter(Boolean).join('');
-  const derivedWeights = derivedFactorWeightRows(selected).map(row => '<li><strong>'+h(row.rank)+'. '+h(row.factor.factor_name)+'</strong><span>'+h(row.percent.toFixed(1))+'%</span></li>').join('');
+  const sliderRatings = factorRatingRows(selected).map(row => '<li><strong>'+h(row.factor.factor_name)+'</strong><span>'+h(row.rating)+'/100</span></li>').join('');
   const outcomes = outcomeRatingsAsLabels().map(([label, value]) => '<li><strong>'+h(label)+'</strong><span>'+h(value)+'</span></li>').join('');
   const statutoryReview = state.participantGroup === 'Statutory body' ? '<div><dt>Statutory body type</dt><dd>'+h(state.statutoryBodyType || 'Not provided')+'</dd></div>' : '';
   const ownershipReview = state.participantGroup === 'Building owner / landlord' ? '<div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not provided')+'</dd></div>' : '';
   const projectLocationReview = shouldAskProjectLocation() ? '<div><dt>Project location</dt><dd>'+h(state.projectLocation || 'Not specified')+'</dd></div>' : '';
-  return '<div class="survey-review-panel"><h3>Please review your response before final submission.</h3><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'</dl><h4>Selected factors and ranking</h4><ol class="review-ranking">'+ranked+'</ol><h4>Derived factor weights</h4><p class="map-note">Weights are automatically derived from the ranking. Rank 1 receives the highest weight.</p><ul class="review-ratings">'+derivedWeights+'</ul><h4>Preferred reuse / redevelopment outcome</h4><ul class="review-ratings">'+outcomes+'</ul><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
+  return '<div class="survey-review-panel"><h3>Please review your response before final submission.</h3><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'</dl><h4>Selected factors and ranking</h4><ol class="review-ranking">'+ranked+'</ol><h4>Importance weighting scores</h4><p class="map-note">These scores come from the 0-100 slider bars for your selected factors.</p><ul class="review-ratings">'+sliderRatings+'</ul><h4>Preferred reuse / redevelopment outcome</h4><ul class="review-ratings">'+outcomes+'</ul><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -1578,7 +1591,7 @@ function renderSurveyCriteria() {
   document.getElementById('surveyPreview').innerHTML =
     '<div class="survey-banner"><strong>'+h(selected.length)+'</strong><span>participant-selected factors</span></div>' +
     renderRankingList(selected) +
-    renderDerivedFactorWeights(selected) +
+    renderImportanceSliders(selected) +
     renderOutcomeLikelihoodScale() +
     submitButtonHtml +
     renderSurveyReviewPanel(selected) +
@@ -1589,6 +1602,11 @@ function renderSurveyCriteria() {
   });
   document.querySelectorAll('[data-rank-move]').forEach(button => button.onclick = e => {
     moveRankingFactor(e.currentTarget.dataset.rankingId, e.currentTarget.dataset.rankMove === 'up' ? -1 : 1);
+  });
+  document.querySelectorAll('[data-survey-rating]').forEach(input => input.oninput = e => {
+    state.surveyRatings[e.target.dataset.surveyRating] = Number(e.target.value);
+    setSurveyInProgress();
+    renderSurveyCriteria();
   });
   document.querySelectorAll('[data-ranking-id][draggable="true"]').forEach(item => {
     item.ondragstart = e => {
