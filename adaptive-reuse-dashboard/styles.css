@@ -287,6 +287,7 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .survey-review-panel { display: grid; gap: 18px; margin-top: 18px; padding: 20px; border: 1px solid #99f6e4; border-radius: 10px; background: #f0fdfa; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
 .survey-review-panel h3 { margin: 0 0 2px; font-size: 18px; }
 .survey-review-panel h4 { margin: 4px 0 0; font-size: 14px; }
+.review-intro { margin: -10px 0 0; color: #334155; font-size: 13px; line-height: 1.45; }
 .survey-review-panel dl { display: grid; gap: 10px; margin: 0; padding: 14px; border: 1px solid #ccfbf1; border-radius: 8px; background: rgba(255,255,255,0.72); }
 .survey-review-panel dl div { display: grid; gap: 3px; }
 .survey-review-panel dt { color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; }
