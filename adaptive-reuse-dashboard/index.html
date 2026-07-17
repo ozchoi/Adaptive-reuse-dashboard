@@ -66,6 +66,7 @@
         <button class="tab" data-tab="overview" data-mode="decision">Portfolio Overview</button>
         <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
         <button class="tab active" data-tab="survey" data-mode="research">Questionnaire</button>
+        <button class="tab" data-tab="questionnaire-results" data-mode="research">Questionnaire Results</button>
         <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
         <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
         <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
@@ -148,6 +149,64 @@
             <div id="stakeholderFactorList" class="criteria-list"></div>
           </article>
         </div>
+      </section>
+
+      <section id="questionnaire-results" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Questionnaire Results</h2>
+              <p>Team-only summary and submission review for completed questionnaire responses.</p>
+            </div>
+            <button id="exportQuestionnaireResultsCsv" class="primary-button" type="button">Export results CSV</button>
+          </div>
+          <p id="questionnaireResultsStatus" class="map-note"></p>
+          <div id="questionnaireResultKpis" class="kpi-grid compact"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Filters</h2>
+              <p id="questionnaireFilteredCount"></p>
+            </div>
+            <button id="resetQuestionnaireResultFilters" class="ghost-button" type="button">Reset filters</button>
+          </div>
+          <div id="questionnaireResultFilters" class="questionnaire-result-filters"></div>
+        </article>
+        <div class="grid two questionnaire-summary-grid">
+          <article class="panel">
+            <h2>Stakeholder profile</h2>
+            <div id="questionnaireProfileSummary" class="summary-stack"></div>
+          </article>
+          <article class="panel">
+            <h2>Preferred reuse / redevelopment strategy and outcome</h2>
+            <div class="table-wrap responsive-table"><table id="questionnaireOutcomeSummary"></table></div>
+          </article>
+        </div>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Factor selection and ranking</h2>
+            <p>Selection frequency, average rank and average derived weight across filtered submissions.</p>
+          </div>
+          <div class="table-wrap responsive-table"><table id="questionnaireFactorSummary"></table></div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Derived model weights</h2>
+            <p>Average factor weights based on submitted 0-100 importance sliders.</p>
+          </div>
+          <div class="table-wrap responsive-table"><table id="questionnaireWeightSummary"></table></div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Submission details</h2>
+              <p id="questionnaireSubmissionMeta"></p>
+            </div>
+          </div>
+          <div class="table-wrap responsive-table"><table id="questionnaireSubmissionTable"></table></div>
+        </article>
+        <div id="questionnaireSubmissionDetail" class="submission-detail-modal" hidden aria-hidden="true"></div>
       </section>
 
       <section id="survey-results" class="tab-panel">
