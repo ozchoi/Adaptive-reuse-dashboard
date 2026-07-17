@@ -3,8 +3,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.survey_submissions (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
-  stakeholder_group text not null,
-  stakeholder_group_key text not null,
+  stakeholder_group text,
+  stakeholder_group_key text,
   statutory_body_type text,
   industrial_ownership_type text,
   adaptive_reuse_knowledge text,

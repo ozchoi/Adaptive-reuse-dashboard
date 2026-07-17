@@ -604,8 +604,10 @@ function surveySubmissionPayload() {
   };
 }
 function buildSupabaseSubmissionPayload(response) {
+  const stakeholderGroup = response.stakeholderGroup || response.stakeholder_group || null;
   return {
-    stakeholder_group: response.stakeholderGroup || response.stakeholder_group || null,
+    stakeholder_group: stakeholderGroup,
+    stakeholder_group_key: response.stakeholderGroupKey || response.stakeholder_group_key || (stakeholderGroup ? stakeholderGroupKey(stakeholderGroup) : null),
     statutory_body_type: response.statutoryBodyType || response.statutory_body_type || null,
     submitted_at: response.submittedAt || response.submitted_at || new Date().toISOString(),
     response_data: response
@@ -617,6 +619,7 @@ function supabaseSubmissionPayloadAttempts(response) {
     summaryPayload,
     {
       stakeholder_group: summaryPayload.stakeholder_group,
+      stakeholder_group_key: summaryPayload.stakeholder_group_key,
       submitted_at: summaryPayload.submitted_at,
       response_data: response
     },
