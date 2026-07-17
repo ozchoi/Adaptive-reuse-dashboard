@@ -230,6 +230,13 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .rank-actions { display: flex; gap: 6px; }
 .rank-actions button { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; background: #fff; color: #475569; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .rank-actions button:disabled { cursor: not-allowed; opacity: 0.45; }
+.derived-weight-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.derived-weight-list { display: grid; gap: 7px; }
+.derived-weight-list div { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #f8fafc; }
+.derived-weight-list span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: 12px; font-weight: 900; }
+.derived-weight-list strong { color: var(--ink); font-size: 13px; line-height: 1.25; }
+.derived-weight-list em { color: var(--muted); font-size: 12px; font-style: normal; font-weight: 800; }
+.derived-weight-list b { color: var(--teal); font-size: 13px; }
 .reuse-outcome-box { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .reuse-outcome-box h3 { margin: 0; font-size: 15px; }
 .reuse-options { display: grid; gap: 8px; }
@@ -333,7 +340,7 @@ tbody tr.selected-row { background: var(--green-soft); }
 .scenario-card ol { padding-left: 20px; margin: 12px 0 0; }
 .scenario-card li { margin: 8px 0; }
 @media (max-width: 1100px) { .layout, .map-grid, .scoring-grid, .two, .overview-topline { grid-template-columns: 1fr; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .dimension-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app-header { grid-template-columns: 1fr; } .header-actions { justify-content: flex-start; } }
-@media (max-width: 640px) { .layout { padding: 12px; } .app-header { padding: 22px 16px; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .compare-controls, .baseline-filter-grid, .dimension-summary, .form-grid, .slider-scale, .diff-card div, .compact-filter, .insight-metrics, .pathway-items, .score-profile-panel .pathway-items, .factor-choice-layout, .factor-choice-grid { grid-template-columns: 1fr; } .factor-choice-layout { overflow-x: visible; } .slider-scale span, .slider-scale span:nth-child(2), .slider-scale span:last-child { text-align: left; } .panel-heading { display: block; } .compact-filter { margin-top: 12px; } .bar-row, .wide .bar-row, .radar-row, .ranking-item, .review-ratings li { grid-template-columns: 1fr; } .rank-actions { justify-content: flex-start; } .pathway-heading, .pathway-item header { grid-template-columns: 1fr; } .pathway-heading { display: grid; } .map-panel { height: 440px; } }
+@media (max-width: 640px) { .layout { padding: 12px; } .app-header { padding: 22px 16px; } .kpi-grid, .kpi-grid.compact, .scenario-cards, .compare-controls, .baseline-filter-grid, .dimension-summary, .form-grid, .slider-scale, .diff-card div, .compact-filter, .insight-metrics, .pathway-items, .score-profile-panel .pathway-items, .factor-choice-layout, .factor-choice-grid { grid-template-columns: 1fr; } .factor-choice-layout { overflow-x: visible; } .slider-scale span, .slider-scale span:nth-child(2), .slider-scale span:last-child { text-align: left; } .panel-heading { display: block; } .compact-filter { margin-top: 12px; } .bar-row, .wide .bar-row, .radar-row, .ranking-item, .review-ratings li, .derived-weight-list div { grid-template-columns: 1fr; } .rank-actions { justify-content: flex-start; } .pathway-heading, .pathway-item header { grid-template-columns: 1fr; } .pathway-heading { display: grid; } .map-panel { height: 440px; } }
 @media (max-width: 760px) { .likelihood-followup { padding-left: 0; } .likelihood-options { grid-template-columns: 1fr; } }
 
 .header-copy { min-width: 0; }

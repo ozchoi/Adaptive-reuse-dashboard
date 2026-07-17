@@ -12,6 +12,8 @@ create table if not exists public.survey_submissions (
   ratings jsonb not null default '{}'::jsonb,
   selected_factors text[] not null default '{}',
   factor_ranking text[] not null default '{}',
+  derived_factor_weights jsonb not null default '{}'::jsonb,
+  derived_factor_raw_scores jsonb not null default '{}'::jsonb,
   factor_ratings jsonb not null default '{}'::jsonb,
   preferred_reuse_redevelopment_outcomes jsonb not null default '{}'::jsonb,
   selected_reuse_redevelopment_outcomes text[] not null default '{}',
@@ -19,6 +21,8 @@ create table if not exists public.survey_submissions (
   submitted_at timestamptz,
   "selectedFactors" text[] not null default '{}',
   "factorRanking" text[] not null default '{}',
+  "derivedFactorWeights" jsonb not null default '{}'::jsonb,
+  "derivedFactorRawScores" jsonb not null default '{}'::jsonb,
   "factorRatings" jsonb not null default '{}'::jsonb,
   "stakeholderGroup" text,
   "statutoryBodyType" text,
@@ -38,6 +42,8 @@ alter table public.survey_submissions add column if not exists statutory_body_ty
 alter table public.survey_submissions add column if not exists adaptive_reuse_knowledge text;
 alter table public.survey_submissions add column if not exists project_involvement text;
 alter table public.survey_submissions add column if not exists factor_ranking text[] not null default '{}';
+alter table public.survey_submissions add column if not exists derived_factor_weights jsonb not null default '{}'::jsonb;
+alter table public.survey_submissions add column if not exists derived_factor_raw_scores jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists factor_ratings jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists preferred_reuse_redevelopment_outcomes jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists selected_reuse_redevelopment_outcomes text[] not null default '{}';
@@ -45,6 +51,8 @@ alter table public.survey_submissions add column if not exists respondent_profil
 alter table public.survey_submissions add column if not exists submitted_at timestamptz;
 alter table public.survey_submissions add column if not exists "selectedFactors" text[] not null default '{}';
 alter table public.survey_submissions add column if not exists "factorRanking" text[] not null default '{}';
+alter table public.survey_submissions add column if not exists "derivedFactorWeights" jsonb not null default '{}'::jsonb;
+alter table public.survey_submissions add column if not exists "derivedFactorRawScores" jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists "factorRatings" jsonb not null default '{}'::jsonb;
 alter table public.survey_submissions add column if not exists "stakeholderGroup" text;
 alter table public.survey_submissions add column if not exists "statutoryBodyType" text;
