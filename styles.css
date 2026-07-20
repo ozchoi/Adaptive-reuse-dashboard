@@ -186,6 +186,11 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .criteria-card header, .diff-card header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
 .criteria-card header span, .diff-card header span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .criteria-card p, .survey-question p { margin: 0; color: #334155; line-height: 1.5; }
+.participant-info-card { display: grid; gap: 10px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04); }
+.participant-info-card h3 { margin: 0; color: var(--ink); font-size: 17px; }
+.participant-info-card p { margin: 0; color: #334155; line-height: 1.55; }
+.consent-form-link { width: fit-content; color: var(--teal); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; }
+.consent-form-link:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.22); outline-offset: 3px; border-radius: 4px; }
 .factor-selection-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04); }
 .survey-instrument-panel .factor-selection-panel { width: 100%; }
 .survey-instrument-panel .factor-matrix { width: 100%; min-width: 1320px; }
@@ -284,6 +289,12 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .likelihood-option input:focus-visible + span { outline: 3px solid rgba(13, 148, 136, 0.2); outline-offset: 2px; }
 .likelihood-option.selected span, .likelihood-option input:checked + span { border-color: var(--teal); background: var(--green-soft); color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
 .other-outcome-input { display: grid; gap: 6px; margin: 2px 0 0; color: #334155; font-size: 12px; font-weight: 800; }
+.survey-consent-section { display: grid; gap: 8px; margin-top: 4px; padding: 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.survey-consent-section.has-error { border-color: #fecaca; background: #fef2f2; }
+.consent-check { display: flex; grid-template-columns: none; align-items: flex-start; gap: 10px; margin: 0; color: #334155; font-size: 13px; font-weight: 750; line-height: 1.5; cursor: pointer; }
+.consent-check input { flex: 0 0 auto; width: 18px; min-height: 18px; margin-top: 2px; accent-color: var(--teal); }
+.consent-validation { margin: 0; color: #991b1b; font-size: 12px; font-weight: 850; line-height: 1.4; }
+.consent-validation:focus-visible { outline: 3px solid rgba(220, 38, 38, 0.22); outline-offset: 3px; border-radius: 4px; }
 .survey-submit-status { display: grid; gap: 10px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .survey-submit-status strong { color: var(--ink); font-size: 13px; }
 .survey-submit-status.submitted { border-color: #99f6e4; background: var(--green-soft); }
@@ -296,6 +307,7 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .survey-review-panel h3 { margin: 0 0 2px; font-size: 18px; }
 .survey-review-panel h4 { margin: 4px 0 0; font-size: 14px; }
 .review-intro { margin: -10px 0 0; color: #334155; font-size: 13px; line-height: 1.45; }
+.review-consent-note { margin: 0; padding: 12px; border: 1px solid #ccfbf1; border-radius: 8px; background: rgba(255,255,255,0.72); color: #334155; font-size: 13px; line-height: 1.45; }
 .survey-review-panel dl { display: grid; gap: 10px; margin: 0; padding: 14px; border: 1px solid #ccfbf1; border-radius: 8px; background: rgba(255,255,255,0.72); }
 .survey-review-panel dl div { display: grid; gap: 3px; }
 .survey-review-panel dt { color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; }
