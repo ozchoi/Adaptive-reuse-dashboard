@@ -1967,18 +1967,18 @@ function renderQuestionnaireFactorTable(pool) {
     label,
     factors: pool.filter(factor => factor.dimension === key)
   }));
-  const cards = byDimension.map(group => {
+  const rows = byDimension.map(group => {
     if (!group.factors.length) return '';
-    return '<section class="factor-choice-group"><h4>'+h(group.label)+'</h4><div class="factor-choice-grid">' + group.factors.map(factor => {
+    return '<section class="factor-dimension-row"><div class="factor-dimension-label" role="heading" aria-level="4">'+h(group.label)+'</div><div class="factor-choice-grid">' + group.factors.map(factor => {
       const isSelected = state.surveySelectedFactorIds.includes(factor.id);
       const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= maxSurveyFactors;
       const isExpanded = state.expandedSurveyFactorIds.includes(factor.id);
       const detailId = 'factor-detail-' + factor.id;
-      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head"><strong>'+explainTerms(factor.factor_name)+'</strong>'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'</div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
+      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head">'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'<strong>'+explainTerms(factor.factor_name)+'</strong></div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
     }).join('') + '</div></section>';
   }).join('');
   const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
-  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider important for assessing industrial-to-residential adaptive reuse suitability. Then rank all selected factors and use slider bars to rate their importance.</p>'+limitMessage+'<div class="factor-choice-layout">'+cards+'</div></div>';
+  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider most important for assessing industrial-to-residential adaptive reuse suitability. Then rank all selected factors from most important to least important. Factor weights will be calculated automatically from your ranking.</p>'+limitMessage+'<div class="factor-choice-layout">'+rows+'</div></div>';
 }
 function renderRankingList(selected) {
   const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
