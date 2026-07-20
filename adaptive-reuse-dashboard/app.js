@@ -310,10 +310,11 @@ function writeStoredTeamAccess(unlocked) {
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsError: false, baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
+let surveySubmissionsLoadPromise = null;
 const categoryColor = { High: '#0f766e', Medium: '#d97706', Low: '#dc2626', 'Lower conversion priority': '#dc2626' };
 const facilityColor = { Hospital: '#dc2626', 'Shopping mall': '#7c3aed', 'Wet market': '#d97706', MTR: '#2563eb' };
 const radarPalette = ['#0f766e', '#2563eb', '#d97706', '#64748b'];
@@ -566,7 +567,10 @@ function factorDimension(value) {
 function responseDataFromRow(row = {}) {
   if (!row.response_data) return null;
   if (typeof row.response_data === 'string') {
-    try { return JSON.parse(row.response_data); } catch (error) { return null; }
+    try { return JSON.parse(row.response_data); } catch (error) {
+      console.warn('Invalid response_data JSON:', row.id, error);
+      return null;
+    }
   }
   return typeof row.response_data === 'object' ? row.response_data : null;
 }
@@ -611,13 +615,15 @@ function normaliseSurveySubmission(row = {}) {
   const preferredReuseRedevelopmentOutcomes = normalizeObjectValue(base.preferredReuseRedevelopmentOutcomes || base.preferred_reuse_redevelopment_outcomes || row.preferred_reuse_redevelopment_outcomes || row.preferredReuseRedevelopmentOutcomes);
   const selectedReuseRedevelopmentOutcomes = normalizeArrayValue(base.selectedReuseRedevelopmentOutcomes || base.selected_reuse_redevelopment_outcomes || row.selected_reuse_redevelopment_outcomes || row.selectedReuseRedevelopmentOutcomes);
   const otherOutcomeText = base.otherOutcomeText || base.other_outcome_text || row.other_outcome_text || row.otherOutcomeText || null;
-  const submittedAt = base.submittedAt || base.submitted_at || row.submitted_at || row.submittedAt || row.created_at || null;
+  const submittedAt = base.submittedAt || base.submitted_at || row.submitted_at || row.submittedAt || row.created_at || base.createdAt || base.created_at || null;
+  const createdAt = base.createdAt || base.created_at || row.created_at || null;
   return {
     ...base,
     id: base.id || row.id || row.submission_id || row.uuid || null,
     databaseId: row.id || row.submission_id || row.uuid || base.databaseId || base.database_id || base.id || null,
     database_id: row.id || row.submission_id || row.uuid || base.databaseId || base.database_id || base.id || null,
-    created_at: base.created_at || row.created_at || null,
+    createdAt,
+    created_at: createdAt,
     stakeholderGroup,
     stakeholder_group: stakeholderGroup,
     stakeholderGroupKey: stakeholderKey,
@@ -656,7 +662,9 @@ function normaliseSurveySubmission(row = {}) {
     selected_reuse_redevelopment_outcomes: selectedReuseRedevelopmentOutcomes,
     ratings: factorRatings,
     comments: base.comments || base.comment || row.comments || row.comment || '',
-    raw: responseData || row
+    questionnaireVersion: base.metadata?.questionnaireVersion || base.questionnaireVersion || base.questionnaire_version || row.questionnaire_version || null,
+    raw: responseData || row,
+    rawRow: row
   };
 }
 function surveySubmissionsForGroup(groupKey = state.surveyResultGroup) {
@@ -783,6 +791,10 @@ function supabaseSubmissionPayloadAttempts(response) {
 function isUnknownSupabaseColumnError(error) {
   return error && error.code === 'PGRST204';
 }
+function isMissingColumnError(error, columnName) {
+  const text = [error?.message, error?.details?.message, error?.details?.details, error?.details?.hint, error?.code].filter(Boolean).join(' ');
+  return text.includes(columnName) || error?.code === 'PGRST200' || error?.code === 'PGRST204';
+}
 async function saveSurveySubmission(payload) {
   const surveyResponse = normaliseSurveySubmission(payload);
   if (!supabaseReady()) {
@@ -825,33 +837,62 @@ async function saveStakeholderSuggestedFactor(payload) {
   return { remote: true };
 }
 async function loadSurveySubmissions(options = {}) {
-  const { renderAfter = true } = options;
-  if (!supabaseReady()) {
-    state.questionnaireResultsError = true;
-    if (renderAfter) render();
-    return [];
-  }
-  try {
-    let submissions;
-    try {
-      submissions = await supabaseRequest('survey_submissions', { query: '?select=*&order=submitted_at.desc' });
-    } catch (error) {
-      if (error.code !== 'PGRST200' && error.code !== 'PGRST204') throw error;
-      submissions = await supabaseRequest('survey_submissions', { query: '?select=*&order=created_at.desc' });
+  const { renderAfter = true, successMessage = '' } = options;
+  if (!teamAccessUnlocked()) return [];
+  if (surveySubmissionsLoadPromise) return surveySubmissionsLoadPromise;
+  const task = (async () => {
+    state.questionnaireResultsLoading = true;
+    state.questionnaireResultsError = '';
+    state.questionnaireResultsStatusMessage = '';
+    if (renderAfter) renderQuestionnaireResults();
+    if (!supabaseReady()) {
+      const error = new Error('Supabase is not configured.');
+      state.surveySubmissionsLoaded = false;
+      state.questionnaireResultsError = 'Questionnaire results could not be loaded. Please try again.';
+      state.questionnaireResultsLoading = false;
+      if (renderAfter) renderQuestionnaireResults();
+      throw error;
     }
-    state.surveySubmissions = (submissions || []).map(normaliseSurveySubmission).sort((a, b) => new Date(b.submittedAt || b.created_at || 0) - new Date(a.submittedAt || a.created_at || 0));
-    state.surveySubmissionsLoaded = true;
-    state.questionnaireResultsError = false;
-    state.weights = finalResearchWeights();
-    state.researchWeights = state.weights.slice();
-  } catch (error) {
-    console.error('Questionnaire results load failed', error.details || error);
-    state.questionnaireResultsError = true;
+    try {
+      console.log('Loading questionnaire submissions from Supabase');
+      let submissions;
+      try {
+        submissions = await supabaseRequest('survey_submissions', { query: '?select=*&order=submitted_at.desc' });
+      } catch (error) {
+        if (!isMissingColumnError(error, 'submitted_at')) throw error;
+        submissions = await supabaseRequest('survey_submissions', { query: '?select=*&order=created_at.desc' });
+      }
+      const remoteRows = (submissions || [])
+        .map(normaliseSurveySubmission)
+        .sort((a, b) => new Date(b.submittedAt || b.createdAt || b.created_at || 0) - new Date(a.submittedAt || a.createdAt || a.created_at || 0));
+      state.surveySubmissions = remoteRows;
+      state.surveySubmissionsLoaded = true;
+      state.questionnaireResultsError = '';
+      state.questionnaireResultsLastUpdated = new Date().toISOString();
+      state.questionnaireResultsStatusMessage = successMessage;
+      state.weights = finalResearchWeights();
+      state.researchWeights = state.weights.slice();
+      console.log('Loaded ' + remoteRows.length + ' remote questionnaire submissions');
+      return remoteRows;
+    } catch (error) {
+      state.surveySubmissionsLoaded = false;
+      state.questionnaireResultsError = 'Questionnaire results could not be loaded. Please try again.';
+      console.error('Failed to load remote questionnaire submissions', error.details || error);
+      throw error;
+    } finally {
+      state.questionnaireResultsLoading = false;
+      if (renderAfter) renderQuestionnaireResults();
+    }
+  })();
+  surveySubmissionsLoadPromise = task;
+  try {
+    return await task;
+  } finally {
+    surveySubmissionsLoadPromise = null;
   }
-  if (renderAfter) render();
-  return state.surveySubmissions;
 }
 function showQuestionnaireResultsMessage(message, type = '') {
+  state.questionnaireResultsStatusMessage = message || '';
   const status = document.getElementById('questionnaireResultsStatus');
   if (!status) return;
   status.textContent = message || '';
@@ -901,7 +942,13 @@ async function loadSupabaseData() {
   try {
     const suggestedFactors = await supabaseRequest('stakeholder_suggested_factors', { query: '?select=*&order=created_at.desc' });
     if (Array.isArray(suggestedFactors) && suggestedFactors.length) state.stakeholderFactors = suggestedFactors;
-    if (teamAccessUnlocked()) await loadSurveySubmissions({ renderAfter: false });
+    if (teamAccessUnlocked()) {
+      try {
+        await loadSurveySubmissions({ renderAfter: false });
+      } catch (error) {
+        console.error('Failed to load questionnaire results during startup:', error.details || error);
+      }
+    }
     state.databaseStatus = 'Connected to Supabase.';
   } catch (error) {
     console.error(error);
@@ -1278,17 +1325,71 @@ function renderMiniCountTable(title, rows) {
   const max = Math.max(1, ...rows.map(row => row.count));
   return '<div class="summary-count-block"><h3>'+h(title)+'</h3>' + (rows.length ? rows.map(row => '<div class="summary-count-row"><span>'+h(row.label)+'</span><div><i style="width:'+h(Math.max(2, row.count / max * 100))+'%"></i></div><strong>'+h(row.count)+'</strong></div>').join('') : '<div class="empty-state small">No responses.</div>') + '</div>';
 }
+function renderQuestionnaireResultsPlaceholder(message) {
+  const emptyRow = '<tbody><tr><td><div class="empty-state">'+h(message)+'</div></td></tr></tbody>';
+  const profile = document.getElementById('questionnaireProfileSummary');
+  const factorTable = document.getElementById('questionnaireFactorSummary');
+  const weightTable = document.getElementById('questionnaireWeightSummary');
+  const outcomeTable = document.getElementById('questionnaireOutcomeSummary');
+  const submissionTable = document.getElementById('questionnaireSubmissionTable');
+  const count = document.getElementById('questionnaireFilteredCount');
+  const meta = document.getElementById('questionnaireSubmissionMeta');
+  const filters = document.getElementById('questionnaireResultFilters');
+  if (profile) profile.innerHTML = '<div class="empty-state">'+h(message)+'</div>';
+  if (factorTable) factorTable.innerHTML = emptyRow;
+  if (weightTable) weightTable.innerHTML = emptyRow;
+  if (outcomeTable) outcomeTable.innerHTML = emptyRow;
+  if (submissionTable) submissionTable.innerHTML = emptyRow;
+  if (count) count.textContent = '';
+  if (meta) meta.textContent = '';
+  if (filters) filters.innerHTML = '';
+}
 function renderQuestionnaireResults() {
   const kpiEl = document.getElementById('questionnaireResultKpis');
   if (!kpiEl) return;
   if (!teamAccessUnlocked()) return;
   const status = document.getElementById('questionnaireResultsStatus');
-  if (state.questionnaireResultsError) {
-    if (status) status.textContent = 'Questionnaire results could not be loaded. Please try again later.';
-    kpiEl.innerHTML = '';
+  const refreshButton = document.getElementById('refreshQuestionnaireResults');
+  const exportButton = document.getElementById('exportQuestionnaireResultsCsv');
+  if (refreshButton) {
+    refreshButton.disabled = state.questionnaireResultsLoading;
+    refreshButton.textContent = state.questionnaireResultsLoading ? 'Refreshing...' : 'Refresh results';
+  }
+  if (exportButton) exportButton.disabled = state.questionnaireResultsLoading || !!state.questionnaireResultsError || !state.surveySubmissionsLoaded;
+  if (state.questionnaireResultsLoading) {
+    if (status) {
+      status.textContent = 'Loading questionnaire results...';
+      status.className = 'map-note results-message';
+    }
+    kpiEl.innerHTML = ['Total submissions','Most common stakeholder group','Average selected factors','Most frequently selected factor','Most supported outcome'].map(label => '<div class="kpi"><span>'+h(label)+'</span><strong>...</strong></div>').join('');
+    renderQuestionnaireResultsPlaceholder('Loading questionnaire results...');
     return;
   }
-  if (status && !status.textContent) status.textContent = state.surveySubmissionsLoaded ? '' : 'Questionnaire results could not be loaded. Please try again later.';
+  if (state.questionnaireResultsError) {
+    if (status) {
+      status.textContent = state.questionnaireResultsError;
+      status.className = 'map-note results-message error';
+    }
+    kpiEl.innerHTML = '';
+    renderQuestionnaireResultsPlaceholder(state.questionnaireResultsError);
+    return;
+  }
+  if (!state.surveySubmissionsLoaded) {
+    if (status) {
+      status.textContent = 'Loading questionnaire results...';
+      status.className = 'map-note results-message';
+    }
+    kpiEl.innerHTML = '';
+    renderQuestionnaireResultsPlaceholder('Loading questionnaire results...');
+    return;
+  }
+  if (status) {
+    const lastUpdated = state.questionnaireResultsLastUpdated ? 'Last updated: ' + formatSubmissionTime(state.questionnaireResultsLastUpdated) : '';
+    status.textContent = state.questionnaireResultsStatusMessage
+      ? state.questionnaireResultsStatusMessage + (lastUpdated ? ' ' + lastUpdated : '')
+      : (state.surveySubmissions.length ? lastUpdated : 'No questionnaire submissions have been received yet.');
+    status.className = 'map-note results-message' + (state.questionnaireResultsStatusMessage ? ' success' : '');
+  }
   const filtered = questionnaireFilteredSubmissions();
   const summary = questionnaireSummary(filtered);
   kpiEl.innerHTML = [
@@ -1311,6 +1412,9 @@ function renderQuestionnaireResultFilters(filteredCount) {
   const filters = state.questionnaireResultFilters;
   const involvementOptions = countRows(state.surveySubmissions.map(submission => submission.projectInvolvement || submission.project_involvement)).map(row => row.label);
   const locationOptions = countRows(state.surveySubmissions.map(submission => submission.projectLocation || submission.project_location)).map(row => row.label);
+  if (filters.projectInvolvement !== 'All' && !involvementOptions.includes(filters.projectInvolvement)) filters.projectInvolvement = 'All';
+  if (filters.projectLocation !== 'All' && !locationOptions.includes(filters.projectLocation)) filters.projectLocation = 'All';
+  if (filters.stakeholderGroup !== 'All' && !stakeholderWeightGroups.some(group => group.key === filters.stakeholderGroup)) filters.stakeholderGroup = 'All';
   el.innerHTML = '<label>Stakeholder group<select id="questionnaireFilterStakeholder"><option value="All">All</option>'+stakeholderWeightGroups.map(group => '<option value="'+h(group.key)+'">'+h(group.label)+'</option>').join('')+'</select></label>' +
     '<label>Project involvement<select id="questionnaireFilterInvolvement"><option>All</option>'+involvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
     '<label>Project location<select id="questionnaireFilterLocation"><option>All</option>'+locationOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
@@ -1762,14 +1866,41 @@ function openTeamAccessModal() {
   modal.setAttribute('aria-hidden', 'false');
   if (input) window.setTimeout(() => input.focus(), 0);
 }
-function unlockTeamAccess() {
+async function refreshQuestionnaireResults(successMessage = 'Questionnaire results updated.') {
+  try {
+    await loadSurveySubmissions({ renderAfter: true, successMessage });
+  } catch (error) {
+    console.error('Failed to refresh questionnaire results:', error.details || error);
+  }
+}
+function openQuestionnaireResultsTab() {
+  if (!teamAccessUnlocked()) {
+    activateTab('survey');
+    return;
+  }
+  state.questionnaireResultsLoading = true;
+  state.questionnaireResultsError = '';
+  state.questionnaireResultsStatusMessage = '';
+  renderQuestionnaireResults();
+  refreshQuestionnaireResults('');
+}
+async function unlockTeamAccess() {
   state.teamAccessUnlocked = true;
   writeStoredTeamAccess(true);
+  state.questionnaireResultsLoading = true;
+  state.questionnaireResultsError = '';
+  state.questionnaireResultsStatusMessage = '';
   renderAccessState();
   updateViewModeTabs();
   openInitialTab();
   setAccessStateMessage('Full dashboard access unlocked.', 'success');
-  if (!state.surveySubmissionsLoaded) loadSurveySubmissions({ renderAfter: true });
+  try {
+    await loadSurveySubmissions({ renderAfter: false });
+  } catch (error) {
+    console.error('Failed to load questionnaire results after unlock:', error.details || error);
+  } finally {
+    render();
+  }
 }
 function lockTeamAccess() {
   state.teamAccessUnlocked = false;
@@ -1793,8 +1924,7 @@ function activateTab(tabName) {
   tab.classList.add('active');
   panel.classList.add('active');
   if (tabName === 'questionnaire-results') {
-    if (!state.surveySubmissionsLoaded) loadSurveySubmissions({ renderAfter: true });
-    else renderQuestionnaireResults();
+    openQuestionnaireResultsTab();
   }
   if (tabName === 'map' && suitabilityMap) setTimeout(() => {
     suitabilityMap.invalidateSize();
@@ -2792,12 +2922,12 @@ function bindTeamAccessControls() {
   if (lockButton) lockButton.onclick = lockTeamAccess;
   if (cancelButton) cancelButton.onclick = closeTeamAccessModal;
   document.querySelectorAll('[data-close-access-modal]').forEach(button => button.onclick = closeTeamAccessModal);
-  if (form) form.onsubmit = event => {
+  if (form) form.onsubmit = async event => {
     event.preventDefault();
     const input = document.getElementById('teamAccessCode');
     if (input && input.value === TEAM_ACCESS_CODE) {
       closeTeamAccessModal();
-      unlockTeamAccess();
+      await unlockTeamAccess();
       return;
     }
     if (message) message.textContent = 'Incorrect access code.';
@@ -2843,6 +2973,8 @@ function init() {
   document.getElementById('exportCsv').onclick = exportCsv;
   const exportQuestionnaireResultsButton = document.getElementById('exportQuestionnaireResultsCsv');
   if (exportQuestionnaireResultsButton) exportQuestionnaireResultsButton.onclick = exportQuestionnaireResultsCsv;
+  const refreshQuestionnaireResultsButton = document.getElementById('refreshQuestionnaireResults');
+  if (refreshQuestionnaireResultsButton) refreshQuestionnaireResultsButton.onclick = () => refreshQuestionnaireResults('Questionnaire results updated.');
   const resetQuestionnaireFiltersButton = document.getElementById('resetQuestionnaireResultFilters');
   if (resetQuestionnaireFiltersButton) resetQuestionnaireFiltersButton.onclick = () => {
     state.questionnaireResultFilters = { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' };
