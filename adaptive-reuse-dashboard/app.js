@@ -457,7 +457,9 @@ async function supabaseRequest(table, options = {}) {
     try { parsed = body ? JSON.parse(body) : null; } catch (error) { parsed = null; }
     throw new SupabaseRequestError((parsed && parsed.message) || body || 'Supabase request failed with status ' + response.status, parsed || { body }, response.status);
   }
-  return response.status === 204 ? [] : response.json();
+  if (response.status === 204) return [];
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
 }
 function stakeholderGroupKey(value) {
   const clean = String(value || '').trim();
@@ -612,7 +614,9 @@ function normaliseSurveySubmission(row = {}) {
   const submittedAt = base.submittedAt || base.submitted_at || row.submitted_at || row.submittedAt || row.created_at || null;
   return {
     ...base,
-    id: base.id || row.id || null,
+    id: base.id || row.id || row.submission_id || row.uuid || null,
+    databaseId: row.id || row.submission_id || row.uuid || base.databaseId || base.database_id || base.id || null,
+    database_id: row.id || row.submission_id || row.uuid || base.databaseId || base.database_id || base.id || null,
     created_at: base.created_at || row.created_at || null,
     stakeholderGroup,
     stakeholder_group: stakeholderGroup,
@@ -853,6 +857,9 @@ function showQuestionnaireResultsMessage(message, type = '') {
   status.textContent = message || '';
   status.className = 'map-note results-message' + (type ? ' ' + type : '');
 }
+function databaseSubmissionId(submission = {}) {
+  return submission.databaseId || submission.database_id || submission.id || submission.submission_id || submission.uuid || null;
+}
 async function removeSurveySubmission(submissionId) {
   if (!teamAccessUnlocked()) return;
   if (!submissionId || String(submissionId).startsWith('submission-') || String(submissionId).startsWith('local-')) {
@@ -864,12 +871,17 @@ async function removeSurveySubmission(submissionId) {
     return false;
   }
   try {
-    await supabaseRequest('survey_submissions', {
+    const deletedRows = await supabaseRequest('survey_submissions', {
       method: 'DELETE',
-      query: '?id=eq.' + encodeURIComponent(submissionId),
-      prefer: 'return=minimal'
+      query: '?id=eq.' + encodeURIComponent(submissionId) + '&select=id',
+      prefer: 'return=representation'
     });
-    state.surveySubmissions = state.surveySubmissions.filter(submission => String(submission.id) !== String(submissionId));
+    if (!Array.isArray(deletedRows) || !deletedRows.length) {
+      showQuestionnaireResultsMessage('Submission could not be removed. Please try again.', 'error');
+      console.error('Failed to remove submission: Supabase returned no deleted rows. Check delete RLS policy for survey_submissions.');
+      return false;
+    }
+    state.surveySubmissions = state.surveySubmissions.filter(submission => String(databaseSubmissionId(submission)) !== String(submissionId));
     showQuestionnaireResultsMessage('Submission removed.', 'success');
     await loadSurveySubmissions({ renderAfter: false });
     renderQuestionnaireResults();
@@ -1408,7 +1420,7 @@ async function confirmQuestionnaireRemove(submission) {
   if (!teamAccessUnlocked() || state.questionnaireRemoving) return;
   state.questionnaireRemoving = true;
   renderQuestionnaireRemoveModal(submission);
-  const removed = await removeSurveySubmission(submission.id);
+  const removed = await removeSurveySubmission(databaseSubmissionId(submission));
   if (removed) closeQuestionnaireRemoveModal();
   else {
     state.questionnaireRemoving = false;
