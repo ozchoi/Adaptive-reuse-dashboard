@@ -117,7 +117,7 @@
             <div class="panel-heading">
               <h2>Survey Instrument</h2>
             </div>
-            <p class="map-note">Select 5 to 10 factors, rate only those selected factors with 0-100 sliders, then rank all selected factors from most important to least important.</p>
+            <p class="map-note">Select 5 to 10 factors, provide importance scores with 0-100 sliders, and review the ranking generated from those same scores.</p>
             <div id="surveyCriteriaList" class="criteria-list"></div>
           </article>
           <article class="panel survey-ranking-panel">
@@ -190,14 +190,14 @@
         <article class="panel">
           <div class="panel-heading">
             <h2>Factor selection and ranking</h2>
-            <p>Selection frequency, average rank and average derived weight across filtered submissions.</p>
+            <p>Selection frequency, average importance score and ranking from slider-based submissions.</p>
           </div>
           <div class="table-wrap responsive-table"><table id="questionnaireFactorSummary"></table></div>
         </article>
         <article class="panel">
           <div class="panel-heading">
-            <h2>Derived model weights</h2>
-            <p>Average factor weights based on submitted 0-100 importance sliders.</p>
+            <h2>Slider-based model weights</h2>
+            <p>Model weights are calculated from participants’ importance slider scores. Ranking is generated from the same scores and is not used as a separate weighting input.</p>
           </div>
           <div class="table-wrap responsive-table"><table id="questionnaireWeightSummary"></table></div>
         </article>
@@ -222,7 +222,7 @@
           <p class="map-note">Summary of the current pilot survey dataset used to derive the eight-dimension factor weighting. Filter by stakeholder group to compare response patterns.</p>
           <div id="surveyResultKpis" class="kpi-grid compact"></div>
         </article>
-        <article class="panel"><h2>Ranking-derived factor weights</h2><div id="surveyFactorChart" class="bars wide"></div></article>
+        <article class="panel"><h2>Slider-based factor weights</h2><div id="surveyFactorChart" class="bars wide"></div></article>
         <article class="panel">
           <div class="panel-heading">
             <h2>Preferred Reuse / Redevelopment Outcome</h2>
