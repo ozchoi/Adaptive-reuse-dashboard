@@ -313,7 +313,7 @@ function writeStoredTeamAccess(unlocked) {
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -1115,17 +1115,6 @@ function calculateRankingFromImportanceScores(selectedFactors, importanceScores,
     return (previousPosition.get(a) ?? Number.MAX_SAFE_INTEGER) - (previousPosition.get(b) ?? Number.MAX_SAFE_INTEGER);
   });
 }
-function syncImportanceScoresToManualRanking(desiredRanking, currentImportanceScores = state.surveyRatings) {
-  const sortedScores = desiredRanking
-    .map(factorId => Number(currentImportanceScores[factorId] ?? 50))
-    .filter(Number.isFinite)
-    .sort((a, b) => b - a);
-  const updatedScores = {};
-  desiredRanking.forEach((factorId, index) => {
-    updatedScores[factorId] = Math.max(0, Math.min(100, Math.round(sortedScores[index] ?? 50)));
-  });
-  return updatedScores;
-}
 function updateRankingFromImportanceScores(selected = selectedQuestionnaireFactors(), previousRanking = state.surveyFactorRanking) {
   state.surveyFactorRanking = calculateRankingFromImportanceScores(selected, state.surveyRatings, previousRanking);
   state.surveyTopFactors = state.surveyFactorRanking.slice(0, 3);
@@ -1164,6 +1153,11 @@ function cleanQuestionnaireSelection() {
   const previousRanking = state.surveyFactorRanking.filter(id => state.surveySelectedFactorIds.includes(id)).concat(state.surveySelectedFactorIds.filter(id => !state.surveyFactorRanking.includes(id)));
   updateRankingFromImportanceScores(selectedQuestionnaireFactors(), previousRanking);
   state.expandedSurveyFactorIds = state.expandedSurveyFactorIds.filter(id => validIds.has(id));
+  if (state.rankingAdjustment && !state.surveySelectedFactorIds.includes(state.rankingAdjustment.factorId)) {
+    state.rankingAdjustment = null;
+    state.rankingAdjustmentValue = '';
+    state.rankingAdjustmentError = '';
+  }
 }
 function toggleQuestionnaireFactor(factorId) {
   const selected = state.surveySelectedFactorIds.includes(factorId);
@@ -1183,26 +1177,56 @@ function toggleSurveyFactorDetails(factorId) {
     : [...state.expandedSurveyFactorIds, factorId];
   renderSurveyCriteria();
 }
-function moveRankingFactor(factorId, direction) {
-  cleanQuestionnaireSelection();
-  const index = state.surveyFactorRanking.indexOf(factorId);
-  const nextIndex = index + direction;
-  if (index < 0 || nextIndex < 0 || nextIndex >= state.surveyFactorRanking.length) return;
+function rankingAdjustmentContext(adjustment = state.rankingAdjustment) {
+  if (!adjustment?.factorId || !adjustment?.direction) return null;
   const ranking = state.surveyFactorRanking.slice();
-  [ranking[index], ranking[nextIndex]] = [ranking[nextIndex], ranking[index]];
-  Object.assign(state.surveyRatings, syncImportanceScoresToManualRanking(ranking, state.surveyRatings));
-  updateRankingFromImportanceScores(selectedQuestionnaireFactors(), ranking);
-  setSurveyInProgress();
+  const index = ranking.indexOf(adjustment.factorId);
+  const neighborIndex = adjustment.direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || neighborIndex < 0 || neighborIndex >= ranking.length) return null;
+  const selectedById = Object.fromEntries(selectedQuestionnaireFactors().map(factor => [factor.id, factor]));
+  const factor = selectedById[adjustment.factorId];
+  const neighborId = ranking[neighborIndex];
+  const neighbor = selectedById[neighborId];
+  if (!factor || !neighbor) return null;
+  const currentScore = surveyRating(factor.id);
+  const neighborScore = surveyRating(neighborId);
+  const isUp = adjustment.direction === 'up';
+  const min = isUp ? Math.min(neighborScore + 1, 100) : 0;
+  const max = isUp ? 100 : Math.max(neighborScore - 1, 0);
+  return { factor, neighbor, factorId: factor.id, neighborId, direction: adjustment.direction, currentScore, neighborScore, min, max, possible: min <= max };
+}
+function openRankingScoreAdjustment(factorId, direction) {
+  cleanQuestionnaireSelection();
+  const adjustment = { factorId, direction };
+  const context = rankingAdjustmentContext(adjustment);
+  if (!context?.possible) return;
+  state.rankingAdjustment = adjustment;
+  state.rankingAdjustmentValue = String(context.currentScore);
+  state.rankingAdjustmentError = '';
+  renderSurveyCriteria();
+  window.setTimeout(() => document.getElementById('rankingAdjustmentScore')?.focus(), 0);
+}
+function closeRankingScoreAdjustment() {
+  state.rankingAdjustment = null;
+  state.rankingAdjustmentValue = '';
+  state.rankingAdjustmentError = '';
   renderSurveyCriteria();
 }
-function moveRankingFactorBefore(dragId, targetId) {
-  if (!dragId || !targetId || dragId === targetId) return;
-  cleanQuestionnaireSelection();
-  const ranking = state.surveyFactorRanking.filter(id => id !== dragId);
-  const targetIndex = ranking.indexOf(targetId);
-  ranking.splice(targetIndex < 0 ? ranking.length : targetIndex, 0, dragId);
-  Object.assign(state.surveyRatings, syncImportanceScoresToManualRanking(ranking, state.surveyRatings));
-  updateRankingFromImportanceScores(selectedQuestionnaireFactors(), ranking);
+function confirmRankingScoreAdjustment() {
+  const context = rankingAdjustmentContext();
+  if (!context) return closeRankingScoreAdjustment();
+  const newScore = Math.round(Number(state.rankingAdjustmentValue));
+  if (!Number.isFinite(newScore) || newScore < context.min || newScore > context.max) {
+    state.rankingAdjustmentError = 'Please enter a score between ' + context.min + ' and ' + context.max + '.';
+    renderSurveyCriteria();
+    window.setTimeout(() => document.getElementById('rankingAdjustmentScore')?.focus(), 0);
+    return;
+  }
+  state.surveyRatings[context.factorId] = Math.max(0, Math.min(100, newScore));
+  state.rankingAdjustment = null;
+  state.rankingAdjustmentValue = '';
+  state.rankingAdjustmentError = '';
+  updateRankingFromImportanceScores(selectedQuestionnaireFactors(), state.surveyFactorRanking);
   setSurveyInProgress();
   renderSurveyCriteria();
 }
@@ -2246,12 +2270,41 @@ function renderRankingList(selected) {
   const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
   const items = state.surveyFactorRanking.filter(id => selectedById[id]).map((id, index) => {
     const factor = selectedById[id];
-    return '<article class="ranking-item" draggable="true" data-ranking-id="'+h(id)+'"><span class="rank-number">'+h(index + 1)+'</span><div><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em></div><strong class="ranking-score">'+h(surveyRating(id))+' / 100</strong><div class="rank-actions"><button data-rank-move="up" data-ranking-id="'+h(id)+'" type="button" '+(index === 0 ? 'disabled' : '')+'>Up</button><button data-rank-move="down" data-ranking-id="'+h(id)+'" type="button" '+(index === state.surveyFactorRanking.length - 1 ? 'disabled' : '')+'>Down</button></div></article>';
+    const aboveId = state.surveyFactorRanking[index - 1];
+    const belowId = state.surveyFactorRanking[index + 1];
+    const upBlockedByMax = aboveId && surveyRating(aboveId) >= 100;
+    const downBlockedByMin = belowId && surveyRating(belowId) <= 0;
+    const upDisabled = index === 0 || upBlockedByMax;
+    const downDisabled = index === state.surveyFactorRanking.length - 1 || downBlockedByMin;
+    const upTitle = index === 0
+      ? 'This factor is already ranked first.'
+      : upBlockedByMax
+        ? 'This factor cannot move higher unless another importance score is reduced.'
+        : 'Adjust importance score to move this factor higher.';
+    const downTitle = index === state.surveyFactorRanking.length - 1
+      ? 'This factor is already ranked last.'
+      : downBlockedByMin
+        ? 'This factor cannot move lower unless another importance score is increased.'
+        : 'Adjust importance score to move this factor lower.';
+    return '<article class="ranking-item" data-ranking-id="'+h(id)+'"><span class="rank-number">'+h(index + 1)+'</span><div><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em></div><strong class="ranking-score">'+h(surveyRating(id))+' / 100</strong><div class="rank-actions"><button data-rank-move="up" data-ranking-id="'+h(id)+'" type="button" title="'+h(upTitle)+'" '+(upDisabled ? 'disabled' : '')+'>Up</button><button data-rank-move="down" data-ranking-id="'+h(id)+'" type="button" title="'+h(downTitle)+'" '+(downDisabled ? 'disabled' : '')+'>Down</button></div></article>';
   }).join('');
   const emptyMessage = selected.length
     ? '<p class="map-note">Ranking will be complete when all selected factors appear here.</p>'
     : '<div class="empty-state">Select between 5 and 10 factors to create the ranking list.</div>';
-  return '<div id="rankingPanel" class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Factors are ranked automatically according to their importance scores. The factor with the highest score is ranked first. You can also drag factors to change the ranking. The importance scores above will update automatically to match the new order.</p>'+(items ? '<div class="ranking-list" aria-live="polite">'+items+'</div>' : emptyMessage)+'</div>';
+  return '<div id="rankingPanel" class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Factors are ranked automatically according to their importance scores. To change the order, use Up or Down and adjust the factor’s importance score when prompted.</p>'+(items ? '<div class="ranking-list" aria-live="polite">'+items+'</div>' : emptyMessage)+'</div>';
+}
+function renderRankingAdjustmentPanel() {
+  const context = rankingAdjustmentContext();
+  if (!context) return '';
+  const isUp = context.direction === 'up';
+  const specific = isUp
+    ? 'To move “' + context.factor.factor_name + '” above “' + context.neighbor.factor_name + '”, set its importance score above ' + context.neighborScore + '.'
+    : 'To move “' + context.factor.factor_name + '” below “' + context.neighbor.factor_name + '”, set its importance score below ' + context.neighborScore + '.';
+  const guidance = isUp
+    ? 'To move this factor higher, increase its importance score above the factor currently ranked above it.'
+    : 'To move this factor lower, reduce its importance score below the factor currently ranked below it.';
+  const rangeText = context.min + '–' + context.max;
+  return '<div id="rankingAdjustmentModal" class="submission-detail-modal" aria-hidden="false"><div class="submission-detail-backdrop" data-close-ranking-adjustment></div><article class="submission-detail-card ranking-adjustment-card" role="dialog" aria-modal="true" aria-labelledby="rankingAdjustmentTitle"><h2 id="rankingAdjustmentTitle">Adjust importance score</h2><p>'+h(guidance)+'</p><p>'+h(specific)+'</p><dl class="ranking-adjustment-summary"><div><dt>Current score</dt><dd>'+h(context.currentScore)+'</dd></div><div><dt>Required score</dt><dd>'+h(rangeText)+'</dd></div></dl><label>New score<input id="rankingAdjustmentScore" type="number" min="'+h(context.min)+'" max="'+h(context.max)+'" step="1" value="'+h(state.rankingAdjustmentValue || context.currentScore)+'" /></label>'+(state.rankingAdjustmentError ? '<p class="consent-validation">'+h(state.rankingAdjustmentError)+'</p>' : '')+'<div class="access-dialog-actions"><button class="ghost-button" data-close-ranking-adjustment type="button">Cancel</button><button id="confirmRankingAdjustment" class="primary-button" type="button">Confirm new score</button></div></article></div>';
 }
 function renderImportanceSliders(selected) {
   if (!selected.length) return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>0-100 slider</span></div><p class="map-note">Select between 5 and 10 factors first. Slider bars will appear here for the factors you selected.</p><div class="empty-state">Select factors to rate their importance.</div></div>';
@@ -2415,7 +2468,8 @@ function renderSurveyCriteria() {
     renderConsentSection() +
     submitButtonHtml +
     renderSurveyReviewPanel(selected) +
-    '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>';
+    '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>' +
+    renderRankingAdjustmentPanel();
   document.querySelectorAll('[data-factor-details]').forEach(button => button.onclick = e => {
     e.stopPropagation();
     toggleSurveyFactorDetails(e.currentTarget.dataset.factorDetails);
@@ -2484,24 +2538,19 @@ function renderSurveyCriteria() {
   if (editSurveyResponse) editSurveyResponse.onclick = () => { state.surveyReviewOpen = false; updateSurveySummary(); renderSurveyCriteria(); };
   const confirmSurveySubmission = document.getElementById('confirmSurveySubmission');
   if (confirmSurveySubmission) confirmSurveySubmission.onclick = confirmSurveySubmissionHandler;
+  document.querySelectorAll('[data-close-ranking-adjustment]').forEach(button => button.onclick = closeRankingScoreAdjustment);
+  const rankingAdjustmentScore = document.getElementById('rankingAdjustmentScore');
+  if (rankingAdjustmentScore) rankingAdjustmentScore.oninput = e => {
+    state.rankingAdjustmentValue = e.target.value;
+    state.rankingAdjustmentError = '';
+  };
+  const confirmRankingAdjustment = document.getElementById('confirmRankingAdjustment');
+  if (confirmRankingAdjustment) confirmRankingAdjustment.onclick = confirmRankingScoreAdjustment;
   updateSurveySummary();
 }
 function bindRankingControls() {
   document.querySelectorAll('[data-rank-move]').forEach(button => button.onclick = e => {
-    moveRankingFactor(e.currentTarget.dataset.rankingId, e.currentTarget.dataset.rankMove === 'up' ? -1 : 1);
-  });
-  document.querySelectorAll('[data-ranking-id][draggable="true"]').forEach(item => {
-    item.ondragstart = e => {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', e.currentTarget.dataset.rankingId);
-      e.currentTarget.classList.add('dragging');
-    };
-    item.ondragend = e => e.currentTarget.classList.remove('dragging');
-    item.ondragover = e => e.preventDefault();
-    item.ondrop = e => {
-      e.preventDefault();
-      moveRankingFactorBefore(e.dataTransfer.getData('text/plain'), e.currentTarget.dataset.rankingId);
-    };
+    openRankingScoreAdjustment(e.currentTarget.dataset.rankingId, e.currentTarget.dataset.rankMove);
   });
 }
 function updateSurveySummary() {
@@ -3197,6 +3246,7 @@ function init() {
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') closeQuestionnaireSubmissionDetail();
     if (event.key === 'Escape') closeQuestionnaireRemoveModal();
+    if (event.key === 'Escape' && state.rankingAdjustment) closeRankingScoreAdjustment();
   });
   loadSupabaseData();
 }
