@@ -186,10 +186,10 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .criteria-card header, .diff-card header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
 .criteria-card header span, .diff-card header span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .criteria-card p, .survey-question p { margin: 0; color: #334155; line-height: 1.5; }
-.participant-info-card { display: grid; gap: 10px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04); }
+.participant-info-card { display: grid; gap: 12px; padding: 18px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04); }
 .participant-info-card h3 { margin: 0; color: var(--ink); font-size: 17px; }
-.participant-info-card p { margin: 0; color: #334155; line-height: 1.55; }
-.consent-form-link { width: fit-content; color: var(--teal); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; }
+.participant-info-card p { max-width: 1040px; margin: 0; color: #334155; line-height: 1.58; }
+.consent-form-link { width: fit-content; margin-top: 2px; color: var(--teal); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; }
 .consent-form-link:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.22); outline-offset: 3px; border-radius: 4px; }
 .factor-selection-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04); }
 .survey-instrument-panel .factor-selection-panel { width: 100%; }

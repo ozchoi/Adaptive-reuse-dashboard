@@ -1984,7 +1984,9 @@ function renderAccessState() {
   const title = document.getElementById('appTitle');
   const subtitle = document.getElementById('appSubtitle');
   const credit = document.getElementById('appCredit');
-  if (title) title.textContent = unlocked ? 'Hong Kong Industrial Building Reuse Suitability Dashboard' : 'Adaptive Reuse Stakeholder Questionnaire';
+  const pageTitle = unlocked ? 'Hong Kong Industrial Building Reuse Suitability Dashboard' : 'Adaptive Reuse - Stakeholder Survey';
+  document.title = pageTitle;
+  if (title) title.textContent = pageTitle;
   if (subtitle) subtitle.textContent = unlocked
     ? 'An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.'
     : 'Please complete this questionnaire to share your views on industrial-building reuse and redevelopment outcomes.';
@@ -2342,7 +2344,7 @@ function renderOutcomeLikelihoodScale() {
   return '<div class="reuse-outcome-box"><h3>Preferred reuse / redevelopment strategy and outcome</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div>'+(state.outcomeResetNotice ? '<p class="selection-warning">'+h(state.outcomeResetNotice)+'</p>' : '')+'<h4>'+h(subheading)+'</h4><p class="map-note">Tick the outcomes you may support, then indicate how likely you would support each selected outcome. Unticked outcomes will be treated as ‘Not likely’.</p><div class="outcome-likelihood-table">'+rows+'</div></div>';
 }
 function renderParticipantInformationCard() {
-  return '<div class="participant-info-card"><h3>Participant information and consent</h3><p>You are invited to participate in an academic study on the adaptive reuse of vacant or underused industrial buildings for residential use in Hong Kong.</p><p>Participation is voluntary. The online questionnaire will take approximately 5–15 minutes. Your responses will be used for research purposes and normally reported anonymously or in aggregate.</p><a class="consent-form-link" href="'+h(INFORMED_CONSENT_FORM_URL)+'" target="_blank" rel="noopener noreferrer">Read the full Informed Consent Form</a></div>';
+  return '<div class="participant-info-card"><h3>Participant information and consent</h3><p>You are invited to participate in an academic study on the adaptive reuse of vacant or underused industrial buildings for residential use in Hong Kong.</p><p>Adaptive reuse process inherits challenges due to multiple factors influencing the decision-making process. This research aims to identify these associated critical factors and develop a model for optimizing decision-making process. The survey provides you the opportunity to provide opinion related to adaptive reuse process on important factors listed below.</p><p>Responding to this survey is entirely voluntary. The online questionnaire will take approximately 5–15 minutes. Your responses will be used for research purposes and normally reported anonymously or in aggregate.</p><p>If you do agree to participate, please read the ‘Informed Consent Form’ attached in the survey and provide us your consent through the reply slip below.</p><a class="consent-form-link" href="'+h(INFORMED_CONSENT_FORM_URL)+'" target="_blank" rel="noopener noreferrer">Read the full Informed Consent Form</a></div>';
 }
 function renderConsentSection() {
   const invalidAttrs = state.consentValidationMessage ? ' aria-invalid="true" aria-describedby="surveyConsentValidation"' : '';
