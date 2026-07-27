@@ -19,6 +19,8 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, B
 h1 { margin: 0; max-width: 760px; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: 0; }
 .lede { max-width: 760px; margin: 10px 0 0; color: var(--muted); line-height: 1.45; }
 .credit { max-width: 760px; margin: 8px 0 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+#participantHeaderInfo { margin-top: 14px; }
+#participantHeaderInfo:empty { display: none; }
 .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; padding: 20px; max-width: 1640px; margin: 0 auto; }
 .research-mode .layout { grid-template-columns: minmax(0, 1fr); max-width: 2040px; }
 .research-mode .sidebar { display: none; }
@@ -189,6 +191,7 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .participant-info-card { display: grid; gap: 12px; padding: 18px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04); }
 .participant-info-card h3 { margin: 0; color: var(--ink); font-size: 17px; }
 .participant-info-card p { max-width: 1040px; margin: 0; color: #334155; line-height: 1.58; }
+.participant-info-card .participant-confidentiality-note { color: var(--muted); font-size: 12px; font-weight: 750; }
 .consent-form-link { width: fit-content; margin-top: 2px; color: var(--teal); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; }
 .consent-form-link:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.22); outline-offset: 3px; border-radius: 4px; }
 .factor-selection-panel { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04); }
