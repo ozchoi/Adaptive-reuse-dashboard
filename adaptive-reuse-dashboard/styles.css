@@ -460,9 +460,6 @@ tbody tr.selected-row { background: var(--green-soft); }
 .status-badge.prototype, .status-badge.indicative, .status-badge.early-stage, .status-badge.verification { background: #e0f2fe; color: #0369a1; }
 .status-badge.prototype { background: #ecfdf5; color: #0f766e; }
 .text-link-button { display: inline-flex; align-items: center; width: fit-content; margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--teal); font-size: 13px; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
-.header-description { max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-4px); transition: max-height 0.24s ease, opacity 0.24s ease, transform 0.24s ease; margin-top: 0; }
-.header-description.is-open { max-height: 220px; opacity: 1; transform: translateY(0); margin-top: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: auto; }
-.header-description p { margin: 0; color: #334155; line-height: 1.5; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .how-to-card { margin-bottom: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); }
 .how-to-card .panel-heading { margin-bottom: 10px; }

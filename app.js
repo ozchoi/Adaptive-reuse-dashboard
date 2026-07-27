@@ -415,19 +415,6 @@ function outcomeRatingsAsLabels(ratings = state.preferredOutcomeRatings, strateg
   const completeRatings = effectiveOutcomeRatings(ratings, strategy, options);
   return options.map(option => [option.label, outcomeLikelihoodLabel(completeRatings[option.id])]);
 }
-function bindHeaderDescriptionToggle() {
-  const button = document.getElementById('headerDescriptionToggle');
-  const panel = document.getElementById('headerDescription');
-  if (!button || !panel) return;
-  const sync = open => {
-    panel.classList.toggle('is-open', open);
-    panel.setAttribute('aria-hidden', String(!open));
-    button.setAttribute('aria-expanded', String(open));
-    button.textContent = open ? 'See less' : 'See more';
-  };
-  sync(false);
-  button.onclick = () => sync(!panel.classList.contains('is-open'));
-}
 const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
 function supabaseReady() {
   return !!(supabaseConfig.url && supabaseConfig.anonKey && !String(supabaseConfig.url).includes('YOUR_') && !String(supabaseConfig.anonKey).includes('YOUR_'));
@@ -1997,14 +1984,6 @@ function renderAccessState() {
     credit.textContent = unlocked ? 'Academic research prototype. Outputs are indicative and subject to verification.' : '';
   }
   if (participantHeaderInfo) participantHeaderInfo.innerHTML = unlocked ? '' : renderParticipantInformationCard();
-  const descriptionToggle = document.getElementById('headerDescriptionToggle');
-  const description = document.getElementById('headerDescription');
-  if (descriptionToggle) descriptionToggle.hidden = !unlocked;
-  if (!unlocked && description) {
-    description.classList.remove('is-open');
-    description.setAttribute('aria-hidden', 'true');
-    if (descriptionToggle) descriptionToggle.setAttribute('aria-expanded', 'false');
-  }
   const accessButton = document.getElementById('projectTeamAccess');
   const lockButton = document.getElementById('lockTeamAccess');
   if (accessButton) accessButton.hidden = unlocked;
@@ -3195,7 +3174,6 @@ function init() {
   document.getElementById('stakeholderGroup').innerHTML = stakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('');
   document.getElementById('stakeholderDimension').innerHTML = researchDimensions.map(([key,label]) => '<option value="'+h(key)+'">'+h(label)+'</option>').join('');
   renderCompareControls();
-  bindHeaderDescriptionToggle();
   bindTeamAccessControls();
   document.getElementById('scenarioButtons').innerHTML = Object.entries(scenarios).map(([k,s]) => '<button data-scenario="'+k+'">'+h(s.label)+'<small>'+h(s.summary)+'</small></button>').join('');
   document.querySelectorAll('[data-scenario]').forEach(btn => btn.onclick = () => {
