@@ -298,6 +298,21 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .consent-check input { flex: 0 0 auto; width: 18px; min-height: 18px; margin-top: 2px; accent-color: var(--teal); }
 .consent-validation { margin: 0; color: #991b1b; font-size: 12px; font-weight: 850; line-height: 1.4; }
 .consent-validation:focus-visible { outline: 3px solid rgba(220, 38, 38, 0.22); outline-offset: 3px; border-radius: 4px; }
+.reply-slip-section { display: grid; gap: 14px; margin-top: 10px; padding: 18px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.reply-slip-section h3, .reply-slip-section h4, .reply-slip-section p { margin: 0; }
+.reply-slip-section > p { max-width: 1040px; color: #334155; line-height: 1.58; }
+.reply-slip-section label { display: grid; gap: 7px; color: #334155; font-size: 13px; font-weight: 800; }
+.reply-slip-section fieldset { display: grid; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.reply-slip-section legend { padding: 0 4px; color: var(--ink); font-size: 13px; font-weight: 850; line-height: 1.4; }
+.reply-slip-radio { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 9px; margin: 0; cursor: pointer; }
+.reply-slip-radio input { width: auto; min-height: 0; margin: 0; accent-color: var(--teal); }
+.reply-slip-meeting { display: grid; gap: 10px; padding: 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef6ff; }
+.signature-field { display: grid; gap: 9px; padding: 14px; border: 1px solid #99f6e4; border-radius: 10px; background: #f0fdfa; }
+.signature-field > p { color: #475569; font-size: 13px; line-height: 1.45; }
+.signature-canvas { display: block; width: 100%; height: 180px; touch-action: none; border: 1px dashed #64748b; border-radius: 8px; background: #fff; cursor: crosshair; }
+.signature-canvas:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.24); outline-offset: 3px; }
+.signature-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .survey-submit-status { display: grid; gap: 10px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .survey-submit-status strong { color: var(--ink); font-size: 13px; }
 .survey-submit-status.submitted { border-color: #99f6e4; background: var(--green-soft); }

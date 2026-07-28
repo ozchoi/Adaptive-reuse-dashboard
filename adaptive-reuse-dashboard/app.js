@@ -297,6 +297,12 @@ const minSurveyFactors = 5;
 const maxSurveyFactors = 10;
 const INFORMED_CONSENT_FORM_URL = 'informed-consent-form.pdf';
 const CONSENT_VERSION = '1.0';
+const CONSENT_CONFIG = Object.freeze({
+  consentFormVersion: '1.0',
+  replySlipVersion: '1.0',
+  introductoryText: 'Referring to the study entitled ‘Optimized decision-making models for facilitating adaptive reuse of vacant industrial buildings for residential use’ conducted by Prof. Dr. Ruffina Thilakaratne of the Department of Architecture, Hong Kong Chu Hai College:',
+  acknowledgementText: 'The procedures and arrangements described in the Informed Consent Form have been explained to me. I understand the risks and benefits involved. I understand that the collected information will be used only for research purposes and destroyed five years after completion of the study. My participation is voluntary, and I may withdraw at any time without negative consequences.'
+});
 const CONSENT_REQUIRED_MESSAGE = 'Please confirm that you have read the participant information and consent to take part before continuing.';
 const TEAM_ACCESS_CODE = 'reuse$2026';
 const TEAM_ACCESS_STORAGE_KEY = 'adaptiveReuseTeamAccess';
@@ -313,7 +319,7 @@ function writeStoredTeamAccess(unlocked) {
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', replySlip: { participantName: '', consentToParticipate: '', signatureStrokes: [], signatureConfirmed: false, participantLocalDate: new Date().toISOString().slice(0, 10), stakeholderMeetingParticipant: '', audioRecordingConsent: '', videoRecordingConsent: '', photographyConsent: '', confidentialityUndertaking: '' }, replySlipValidation: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -416,8 +422,18 @@ function outcomeRatingsAsLabels(ratings = state.preferredOutcomeRatings, strateg
   return options.map(option => [option.label, outcomeLikelihoodLabel(completeRatings[option.id])]);
 }
 const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
+let supabaseAuthClient = null;
 function supabaseReady() {
   return !!(supabaseConfig.url && supabaseConfig.anonKey && !String(supabaseConfig.url).includes('YOUR_') && !String(supabaseConfig.anonKey).includes('YOUR_'));
+}
+async function ensureAnonymousSupabaseSession() {
+  if (!supabaseReady() || !window.supabase?.createClient) throw new Error('Secure consent submission is not configured.');
+  if (!supabaseAuthClient) supabaseAuthClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  const { data: sessionData } = await supabaseAuthClient.auth.getSession();
+  if (sessionData.session?.access_token) return sessionData.session.access_token;
+  const { data, error } = await supabaseAuthClient.auth.signInAnonymously();
+  if (error || !data.session?.access_token) throw error || new Error('Anonymous authentication did not return a session.');
+  return data.session.access_token;
 }
 class SupabaseRequestError extends Error {
   constructor(message, details = {}, status = null) {
@@ -451,6 +467,41 @@ async function supabaseRequest(table, options = {}) {
   if (response.status === 204) return [];
   const text = await response.text();
   return text ? JSON.parse(text) : [];
+}
+async function submitQuestionnaireWithConsent(questionnaireResponse) {
+  if (!supabaseReady()) throw new Error('Supabase is not configured.');
+  const signatureDataUrl = signatureCanvasDataUrl();
+  if (!signatureDataUrl) throw new Error('A signature is required before the consent record can be saved.');
+  const accessToken = await ensureAnonymousSupabaseSession();
+  const slip = state.replySlip;
+  const endpoint = String(supabaseConfig.url).replace(/\/$/, '') + '/functions/v1/submit-questionnaire-with-consent';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { apikey: supabaseConfig.anonKey, Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questionnaireResponse,
+      consentRecord: {
+        responseReference: questionnaireResponse.responseReference,
+        participantName: String(slip.participantName || '').trim(),
+        consentToParticipate: true,
+        signatureDataUrl,
+        signatureConfirmed: true,
+        participantLocalDate: slip.participantLocalDate,
+        stakeholderMeetingParticipant: slip.stakeholderMeetingParticipant === 'yes',
+        audioRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.audioRecordingConsent === 'agreed' : null,
+        videoRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.videoRecordingConsent === 'agreed' : null,
+        photographyConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.photographyConsent === 'agreed' : null,
+        confidentialityUndertaking: slip.stakeholderMeetingParticipant === 'yes' ? slip.confidentialityUndertaking === 'yes' : null,
+        consentFormVersion: CONSENT_CONFIG.consentFormVersion,
+        replySlipVersion: CONSENT_CONFIG.replySlipVersion
+      }
+    })
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || 'Secure consent submission failed.');
+  }
+  return response.json();
 }
 function stakeholderGroupKey(value) {
   const clean = String(value || '').trim();
@@ -735,6 +786,67 @@ function surveyAverageRankForFactor(factorId, groupKey = state.surveyResultGroup
   }).filter(Number.isFinite);
   return ranks.length ? mean(ranks) : null;
 }
+function generateResponseReference() {
+  return window.crypto?.randomUUID ? window.crypto.randomUUID() : 'reply-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+function replySlipErrors() {
+  const slip = state.replySlip;
+  const errors = {};
+  if (!String(slip.participantName || '').trim()) errors.participantName = 'Please enter the participant’s name.';
+  if (!slip.consentToParticipate) errors.consentToParticipate = 'Please select whether you agree to participate.';
+  if (slip.consentToParticipate === 'declined') errors.consentToParticipate = 'Thank you for your time. The questionnaire cannot be submitted without consent to participate.';
+  if (slip.consentToParticipate === 'agreed' && !slip.signatureStrokes.length) errors.signature = 'Please provide your electronic signature.';
+  if (slip.consentToParticipate === 'agreed' && !slip.signatureConfirmed) errors.signatureConfirmed = 'Please confirm your electronic signature.';
+  return errors;
+}
+function replySlipComplete() { return Object.keys(replySlipErrors()).length === 0; }
+function signatureCanvasDataUrl() {
+  const canvas = document.getElementById('replySlipSignature');
+  return canvas && state.replySlip.signatureStrokes.length ? canvas.toDataURL('image/png') : '';
+}
+function drawSignatureCanvas() {
+  const canvas = document.getElementById('replySlipSignature');
+  if (!canvas) return;
+  const bounds = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+  canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+  const context = canvas.getContext('2d');
+  context.scale(ratio, ratio);
+  context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = 2.2; context.strokeStyle = '#0f172a';
+  state.replySlip.signatureStrokes.forEach(stroke => {
+    if (!stroke.length) return;
+    context.beginPath();
+    stroke.forEach((point, index) => index ? context.lineTo(point.x * bounds.width, point.y * bounds.height) : context.moveTo(point.x * bounds.width, point.y * bounds.height));
+    context.stroke();
+  });
+}
+function bindSignatureCanvas() {
+  const canvas = document.getElementById('replySlipSignature');
+  if (!canvas) return;
+  drawSignatureCanvas();
+  let stroke = null;
+  const point = event => {
+    const bounds = canvas.getBoundingClientRect();
+    return { x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)), y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)) };
+  };
+  canvas.onpointerdown = event => { event.preventDefault(); canvas.setPointerCapture?.(event.pointerId); stroke = [point(event)]; state.replySlip.signatureStrokes.push(stroke); drawSignatureCanvas(); };
+  canvas.onpointermove = event => { if (!stroke) return; event.preventDefault(); stroke.push(point(event)); drawSignatureCanvas(); };
+  const end = event => { if (!stroke) return; event.preventDefault(); if (stroke.length < 2) state.replySlip.signatureStrokes.pop(); stroke = null; state.replySlip.signatureConfirmed = false; document.getElementById('signatureConfirmed')?.removeAttribute('checked'); const confirmation = document.getElementById('signatureConfirmed'); if (confirmation) confirmation.checked = false; state.replySlipValidation = {}; setSurveyInProgress(); };
+  canvas.onpointerup = end; canvas.onpointercancel = end;
+  window.addEventListener('resize', drawSignatureCanvas, { once: true });
+}
+function renderReplySlip() {
+  const slip = state.replySlip;
+  const errors = state.replySlipValidation;
+  const agreed = slip.consentToParticipate === 'agreed';
+  const meeting = slip.stakeholderMeetingParticipant === 'yes';
+  const error = key => errors[key] ? '<p class="consent-validation" id="replySlip'+h(key)+'Error" tabindex="-1">'+h(errors[key])+'</p>' : '';
+  const radio = (name, value, label, selected) => '<label class="reply-slip-radio"><input type="radio" name="'+h(name)+'" value="'+h(value)+'" '+(selected === value ? 'checked' : '')+' /><span>'+h(label)+'</span></label>';
+  const meetingFields = meeting ? '<div class="reply-slip-meeting"><h4>Meeting, interview or forum consent</h4><fieldset><legend>Audio recording</legend>'+radio('audioRecordingConsent', 'agreed', 'I agree to be audio-recorded.', slip.audioRecordingConsent)+radio('audioRecordingConsent', 'declined', 'I do not agree to be audio-recorded.', slip.audioRecordingConsent)+'</fieldset><fieldset><legend>Video recording</legend>'+radio('videoRecordingConsent', 'agreed', 'I agree to be video-recorded.', slip.videoRecordingConsent)+radio('videoRecordingConsent', 'declined', 'I do not agree to be video-recorded.', slip.videoRecordingConsent)+'</fieldset><fieldset><legend>Photography</legend>'+radio('photographyConsent', 'agreed', 'I agree to be photographed.', slip.photographyConsent)+radio('photographyConsent', 'declined', 'I do not agree to be photographed.', slip.photographyConsent)+'</fieldset><fieldset><legend>I undertake to keep information heard, obtained, discussed or presented during the focus group confidential and not to share it with any third party.</legend>'+radio('confidentialityUndertaking', 'yes', 'Yes', slip.confidentialityUndertaking)+radio('confidentialityUndertaking', 'no', 'No', slip.confidentialityUndertaking)+'</fieldset></div>' : '';
+  const signatureFields = agreed ? '<div class="signature-field"><label for="replySlipSignature">Electronic signature</label><p>Please sign inside the box using your mouse, trackpad or touchscreen.</p><canvas id="replySlipSignature" class="signature-canvas" tabindex="0" aria-label="Electronic signature" aria-describedby="replySlipSignatureHelp" role="img"></canvas><span id="replySlipSignatureHelp" class="visually-hidden">Draw your signature in this box.</span><div class="signature-actions"><button id="undoSignatureStroke" class="ghost-button mini-button" type="button" '+(!slip.signatureStrokes.length ? 'disabled' : '')+'>Undo last stroke</button><button id="clearSignature" class="ghost-button mini-button" type="button">Clear signature</button></div>'+error('signature')+'<label class="consent-check"><input id="signatureConfirmed" type="checkbox" '+(slip.signatureConfirmed ? 'checked' : '')+' /><span>I confirm that the electronic signature above is my signature and that I intend it to authenticate this consent record.</span></label>'+error('signatureConfirmed')+'</div>' : slip.consentToParticipate === 'declined' ? '<p class="selection-warning">Thank you for your time. The questionnaire cannot be submitted without consent to participate.</p><button id="resetDeclinedQuestionnaire" class="ghost-button" type="button">Reset questionnaire</button>' : '';
+  return '<section id="replySlipSection" class="reply-slip-section"><div class="panel-heading"><div><h3>Reply slip</h3><p class="map-note">This consent record is stored separately from the anonymous questionnaire analysis.</p></div></div><p>'+h(CONSENT_CONFIG.introductoryText)+'</p><p>'+h(CONSENT_CONFIG.acknowledgementText)+'</p><label>Participant name<input id="replySlipParticipantName" type="text" value="'+h(slip.participantName)+'" autocomplete="name" '+(errors.participantName ? 'aria-invalid="true" aria-describedby="replySlipparticipantNameError"' : '')+' /></label>'+error('participantName')+'<fieldset><legend>Consent to participate</legend>'+radio('consentToParticipate', 'agreed', 'I agree to participate in the research study.', slip.consentToParticipate)+radio('consentToParticipate', 'declined', 'I do not agree to participate in the research study.', slip.consentToParticipate)+'</fieldset>'+error('consentToParticipate')+signatureFields+'<label>Date<input type="date" value="'+h(slip.participantLocalDate)+'" readonly aria-readonly="true" /></label><fieldset><legend>Are you also participating in a stakeholder meeting, interview or forum related to this study?</legend>'+radio('stakeholderMeetingParticipant', 'no', 'No', slip.stakeholderMeetingParticipant)+radio('stakeholderMeetingParticipant', 'yes', 'Yes', slip.stakeholderMeetingParticipant)+'</fieldset>'+error('stakeholderMeetingParticipant')+meetingFields+'</section>';
+}
 function surveySubmissionPayload() {
   cleanQuestionnaireSelection();
   updateRankingFromImportanceScores(selectedQuestionnaireFactors(), state.surveyFactorRanking);
@@ -748,10 +860,11 @@ function surveySubmissionPayload() {
   const topFactorNames = topThree.map(id => (criticalFactors.find(factor => factor.id === id) || {}).factor_name).filter(Boolean);
   const submittedAt = new Date().toISOString();
   const consentedAt = new Date().toISOString();
+  const responseReference = state.replySlip.responseReference || (state.replySlip.responseReference = generateResponseReference());
   const consent = {
     accepted: true,
     acceptedAt: consentedAt,
-    consentVersion: CONSENT_VERSION,
+    consentVersion: CONSENT_CONFIG.consentFormVersion,
     informedConsentFormUrl: INFORMED_CONSENT_FORM_URL
   };
   const respondentProfile = {
@@ -783,9 +896,10 @@ function surveySubmissionPayload() {
     selected_reuse_redevelopment_outcomes: selectedOutcomeIds,
     respondent_profile: respondentProfile,
     consent,
+    response_reference: responseReference,
     consent_accepted: true,
     consented_at: consentedAt,
-    consent_version: CONSENT_VERSION,
+    consent_version: CONSENT_CONFIG.consentFormVersion,
     informed_consent_form_url: INFORMED_CONSENT_FORM_URL,
     submitted_at: submittedAt,
     selectedFactors,
@@ -797,7 +911,7 @@ function surveySubmissionPayload() {
     selectedReuseRedevelopmentOutcomes: selectedOutcomeIds,
     consentAccepted: true,
     consentedAt,
-    consentVersion: CONSENT_VERSION,
+    consentVersion: CONSENT_CONFIG.consentFormVersion,
     informedConsentFormUrl: INFORMED_CONSENT_FORM_URL,
     stakeholderGroup: state.participantGroup,
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
@@ -808,6 +922,7 @@ function surveySubmissionPayload() {
     preferredOutcomeRatings: outcomeRatings,
     otherOutcomeText: Number(outcomeRatings.others) >= 2 ? String(state.otherOutcomeText || '').trim() : null,
     respondentProfile,
+    responseReference,
     submittedAt,
     ratings: importanceScores,
     top_factor_ids: topThree,
@@ -851,6 +966,13 @@ function isMissingColumnError(error, columnName) {
 }
 async function saveSurveySubmission(payload) {
   const surveyResponse = normaliseSurveySubmission(payload);
+  if (state.replySlip?.consentToParticipate === 'agreed') {
+    const result = await submitQuestionnaireWithConsent(payload);
+    state.surveySubmissions.unshift(normaliseSurveySubmission(result.surveySubmission || payload));
+    state.surveySubmissionsLoaded = true;
+    state.databaseStatus = 'Questionnaire and private consent record saved.';
+    return { remote: true, responseReference: payload.responseReference };
+  }
   if (!supabaseReady()) {
     state.surveySubmissions.push({...surveyResponse, id: 'local-' + Date.now(), created_at: new Date().toISOString()});
     state.surveySubmissionsLoaded = true;
@@ -2358,7 +2480,10 @@ function renderSurveyReviewPanel(selected) {
   const statutoryReview = state.participantGroup === 'Statutory body' ? '<div><dt>Statutory body type</dt><dd>'+h(state.statutoryBodyType || 'Not provided')+'</dd></div>' : '';
   const ownershipReview = state.participantGroup === 'Building owner / landlord' ? '<div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not provided')+'</dd></div>' : '';
   const projectLocationReview = shouldAskProjectLocation() ? '<div><dt>Project location</dt><dd>'+h(state.projectLocation || 'Not specified')+'</dd></div>' : '';
-  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div><div><dt>Consent to participate</dt><dd>Confirmed</dd></div></dl><h4>Factor importance and ranking</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol><h4>Preferred outcomes</h4><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul><p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
+  const slip = state.replySlip;
+  const meetingReview = slip.stakeholderMeetingParticipant === 'yes' ? '<div><dt>Audio-recording consent</dt><dd>'+h(slip.audioRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Video-recording consent</dt><dd>'+h(slip.videoRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Photography consent</dt><dd>'+h(slip.photographyConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Confidentiality undertaking</dt><dd>'+h(slip.confidentialityUndertaking === 'yes' ? 'Yes' : 'No')+'</dd></div>' : '';
+  const replySlipReview = '<h4>Reply slip</h4><dl><div><dt>Participant name</dt><dd>'+h(slip.participantName.trim())+'</dd></div><div><dt>Consent to participate</dt><dd>Agreed</dd></div><div><dt>Electronic signature</dt><dd>Provided</dd></div><div><dt>Date</dt><dd>'+h(slip.participantLocalDate)+'</dd></div><div><dt>Electronic-signature confirmation</dt><dd>Confirmed</dd></div><div><dt>Stakeholder meeting participation</dt><dd>'+h(slip.stakeholderMeetingParticipant === 'yes' ? 'Yes' : 'No')+'</dd></div>'+meetingReview+'</dl>';
+  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div></dl><h4>Factor importance and ranking</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol><h4>Preferred outcomes</h4><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul>'+replySlipReview+'<p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -2450,7 +2575,7 @@ function renderSurveyCriteria() {
     renderImportanceSliders(selected) +
     renderRankingList(selected) +
     renderOutcomeLikelihoodScale() +
-    renderConsentSection() +
+    renderReplySlip() +
     submitButtonHtml +
     renderSurveyReviewPanel(selected) +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>' +
@@ -2509,14 +2634,37 @@ function renderSurveyCriteria() {
     setSurveyInProgress();
     updateSurveySummary();
   };
-  const surveyConsentAccepted = document.getElementById('surveyConsentAccepted');
-  if (surveyConsentAccepted) surveyConsentAccepted.onchange = e => {
-    state.consentAccepted = e.target.checked;
-    state.consentValidationMessage = e.target.checked ? '' : CONSENT_REQUIRED_MESSAGE;
-    if (!e.target.checked) state.surveyReviewOpen = false;
+  const replySlipParticipantName = document.getElementById('replySlipParticipantName');
+  if (replySlipParticipantName) replySlipParticipantName.oninput = e => {
+    state.replySlip.participantName = e.target.value;
+    delete state.replySlipValidation.participantName;
     setSurveyInProgress();
-    renderSurveyCriteria();
   };
+  document.querySelectorAll('input[name="consentToParticipate"]').forEach(input => input.onchange = e => {
+    state.replySlip.consentToParticipate = e.target.value;
+    state.consentAccepted = e.target.value === 'agreed';
+    state.replySlipValidation = {};
+    if (e.target.value !== 'agreed') { state.replySlip.signatureStrokes = []; state.replySlip.signatureConfirmed = false; }
+    setSurveyInProgress(); renderSurveyCriteria();
+  });
+  document.querySelectorAll('input[name="stakeholderMeetingParticipant"]').forEach(input => input.onchange = e => {
+    state.replySlip.stakeholderMeetingParticipant = e.target.value;
+    if (e.target.value !== 'yes') { state.replySlip.audioRecordingConsent = ''; state.replySlip.videoRecordingConsent = ''; state.replySlip.photographyConsent = ''; state.replySlip.confidentialityUndertaking = ''; }
+    delete state.replySlipValidation.stakeholderMeetingParticipant;
+    setSurveyInProgress(); renderSurveyCriteria();
+  });
+  ['audioRecordingConsent', 'videoRecordingConsent', 'photographyConsent', 'confidentialityUndertaking'].forEach(key => {
+    document.querySelectorAll('input[name="'+key+'"]').forEach(input => input.onchange = e => { state.replySlip[key] = e.target.value; setSurveyInProgress(); });
+  });
+  bindSignatureCanvas();
+  const clearSignature = document.getElementById('clearSignature');
+  if (clearSignature) clearSignature.onclick = () => { state.replySlip.signatureStrokes = []; state.replySlip.signatureConfirmed = false; delete state.replySlipValidation.signature; delete state.replySlipValidation.signatureConfirmed; setSurveyInProgress(); renderSurveyCriteria(); };
+  const undoSignatureStroke = document.getElementById('undoSignatureStroke');
+  if (undoSignatureStroke) undoSignatureStroke.onclick = () => { state.replySlip.signatureStrokes.pop(); state.replySlip.signatureConfirmed = false; setSurveyInProgress(); renderSurveyCriteria(); };
+  const signatureConfirmed = document.getElementById('signatureConfirmed');
+  if (signatureConfirmed) signatureConfirmed.onchange = e => { state.replySlip.signatureConfirmed = e.target.checked; delete state.replySlipValidation.signatureConfirmed; setSurveyInProgress(); };
+  const resetDeclinedQuestionnaire = document.getElementById('resetDeclinedQuestionnaire');
+  if (resetDeclinedQuestionnaire) resetDeclinedQuestionnaire.onclick = () => { state.replySlip = { participantName: '', consentToParticipate: '', signatureStrokes: [], signatureConfirmed: false, participantLocalDate: new Date().toISOString().slice(0, 10), stakeholderMeetingParticipant: '', audioRecordingConsent: '', videoRecordingConsent: '', photographyConsent: '', confidentialityUndertaking: '' }; state.replySlipValidation = {}; state.consentAccepted = false; setSurveyInProgress(); renderSurveyCriteria(); };
   const submitSurveyButton = document.getElementById('submitSurvey');
   if (submitSurveyButton) submitSurveyButton.onclick = submitSurvey;
   const editSurveyResponse = document.getElementById('editSurveyResponse');
@@ -2599,8 +2747,15 @@ function updateSurveySummary() {
 }
 function submitSurvey() {
   cleanQuestionnaireSelection();
-  if (!state.consentAccepted) {
-    showConsentValidation();
+  state.replySlipValidation = replySlipErrors();
+  if (Object.keys(state.replySlipValidation).length) {
+    state.surveyReviewOpen = false;
+    renderSurveyCriteria();
+    window.setTimeout(() => {
+      const firstError = document.querySelector('#replySlipSection .consent-validation');
+      document.getElementById('replySlipSection')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstError?.focus({ preventScroll: true });
+    }, 0);
     return;
   }
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
@@ -2624,8 +2779,11 @@ async function confirmSurveySubmissionHandler() {
   const selected = selectedQuestionnaireFactors();
   const submitButton = document.getElementById('submitSurvey');
   const confirmButton = document.getElementById('confirmSurveySubmission');
-  if (!state.consentAccepted) {
-    showConsentValidation();
+  state.replySlipValidation = replySlipErrors();
+  if (Object.keys(state.replySlipValidation).length) {
+    state.surveyReviewOpen = false;
+    renderSurveyCriteria();
+    window.setTimeout(() => document.getElementById('replySlipSection')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
     return;
   }
   cleanQuestionnaireSelection();
