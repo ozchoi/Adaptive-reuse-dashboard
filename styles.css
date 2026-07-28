@@ -302,6 +302,7 @@ dd { margin: 2px 0 0; font-weight: 750; }
 .reply-slip-section h3, .reply-slip-section h4, .reply-slip-section p { margin: 0; }
 .reply-slip-section > p { max-width: 1040px; color: #334155; line-height: 1.58; }
 .reply-slip-section label { display: grid; gap: 7px; color: #334155; font-size: 13px; font-weight: 800; }
+.reply-slip-helper { color: var(--muted); font-size: 12px; font-weight: 700; line-height: 1.45; }
 .reply-slip-section fieldset { display: grid; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .reply-slip-section legend { padding: 0 4px; color: var(--ink); font-size: 13px; font-weight: 850; line-height: 1.4; }
 .reply-slip-radio { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 9px; margin: 0; cursor: pointer; }

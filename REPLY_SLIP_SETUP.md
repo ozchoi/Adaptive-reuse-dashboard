@@ -1,6 +1,6 @@
 # Reply Slip secure-storage setup
 
-The electronic Reply Slip sends the anonymous questionnaire response and the private consent record to the `submit-questionnaire-with-consent` Edge Function. Names and signature images are not placed in `survey_submissions.response_data`.
+The electronic Reply Slip sends the anonymous questionnaire response and the private consent record to the `submit-questionnaire-with-consent` Edge Function. Names, stakeholder contact email addresses, and signature images are not placed in `survey_submissions.response_data`.
 
 Before publishing the Reply Slip, complete these Supabase steps:
 

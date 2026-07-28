@@ -17,9 +17,17 @@ Deno.serve(async request => {
     const responseReference = questionnaireResponse?.responseReference;
     const participantName = String(consentRecord?.participantName || '').trim();
     const signatureDataUrl = String(consentRecord?.signatureDataUrl || '');
+    const meetingParticipant = !!consentRecord?.stakeholderMeetingParticipant;
+    const rawContactEmail = meetingParticipant ? String(consentRecord?.contactEmail || '').trim() : '';
+    const emailAt = rawContactEmail.lastIndexOf('@');
+    const contactEmail = meetingParticipant && emailAt > 0
+      ? rawContactEmail.slice(0, emailAt) + '@' + rawContactEmail.slice(emailAt + 1).toLowerCase()
+      : null;
+    const emailIsValid = contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail);
     if (!responseReference || !participantName || consentRecord?.consentToParticipate !== true || consentRecord?.signatureConfirmed !== true || !signatureDataUrl.startsWith('data:image/png;base64,')) {
       return json({ error: 'Invalid consent record.' }, 400);
     }
+    if (meetingParticipant && !emailIsValid) return json({ error: 'Valid stakeholder contact email required.' }, 400);
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -46,12 +54,13 @@ Deno.serve(async request => {
     const { error: consentError } = await admin.from('consent_records').insert({
       response_reference: responseReference,
       participant_name: participantName,
+      contact_email: contactEmail,
       consent_to_participate: true,
       signature_storage_path: signaturePath,
       signature_confirmed: true,
       participant_local_date: consentRecord.participantLocalDate,
       consented_at: new Date().toISOString(),
-      stakeholder_meeting_participant: !!consentRecord.stakeholderMeetingParticipant,
+      stakeholder_meeting_participant: meetingParticipant,
       audio_recording_consent: consentRecord.audioRecordingConsent,
       video_recording_consent: consentRecord.videoRecordingConsent,
       photography_consent: consentRecord.photographyConsent,

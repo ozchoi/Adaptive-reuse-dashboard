@@ -8,6 +8,7 @@ create table if not exists public.consent_records (
   id uuid primary key default gen_random_uuid(),
   response_reference uuid not null unique references public.survey_submissions(response_reference) on delete cascade,
   participant_name text not null,
+  contact_email text,
   consent_to_participate boolean not null,
   signature_storage_path text,
   signature_confirmed boolean not null default false,
@@ -25,6 +26,9 @@ create table if not exists public.consent_records (
 
 alter table public.consent_records enable row level security;
 revoke all on public.consent_records from anon, authenticated;
+
+alter table public.consent_records
+  add column if not exists contact_email text;
 
 -- Create a private bucket in Storage Dashboard named `consent-signatures`.
 -- Do not add public read policies. The Edge Function uses the server-side key.
