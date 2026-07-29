@@ -2469,7 +2469,7 @@ function renderStakeholderBackgroundQuestions() {
   const projectDetailsQuestion = shouldAskProjectDetails()
     ? '<label>Please provide the project name(s) and country/city<span class="field-helper">Please enter the project name(s) and their country or city.</span><textarea id="projectDetails" rows="3" placeholder="ABC Industrial Building Conversion, Hong Kong">'+h(state.projectDetails || '')+'</textarea></label>'
     : '';
-  return statutoryQuestion + '<label>Do you have knowledge or experience related to adaptive reuse or redevelopment?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
+  return statutoryQuestion + '<label>Do you have knowledge or experience related to adaptive reuse?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
     '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectDetailsQuestion;
 }
 function renderOutcomeLikelihoodScale() {
