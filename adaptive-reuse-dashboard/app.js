@@ -74,7 +74,7 @@ const criticalFactors = [
   ['feasibility','Vacancy ratio','This factor refers to how vacant the building is or is it possible to vacate existing tenants with adequate advance notice.','Revised survey questions RT','Current vacancy and ability to decant existing tenants','Higher score for higher vacancy or easier decanting potential',true],
   ['design','Building condition','This factor refers to building condition such as structural stability, level of upgrades required for building services, health and safety of users, design and layout, possibility for conversion with minimum modifications.','Revised survey questions RT','Observed building condition and extent of required upgrades','Higher score for better condition and fewer required conversion modifications',true],
   ['design','Spatial adaptability','This factor refers to whether the building layout can be reasonably subdivided into residential units. Important considerations include floor depth, column grid spacing, core location, corridor arrangement, window access, and whether the current layout plan can support liveable unit layouts.','Revised survey questions RT','Floor plate, column grid, core location and window access','Higher score where layout can support liveable residential units',true],
-  ['design','Day light and natural ventilation access','This factor considers whether future residential units can receive adequate daylight and natural ventilation. This is a challenge in industrial buildings because of deep floor plates and limited openings.','Revised survey questions RT','Daylight, facade exposure, ventilation and openings','Higher score where future units can achieve adequate daylight and ventilation',true],
+  ['design','Daylight and natural ventilation access','This factor considers whether future residential units can receive adequate daylight and natural ventilation. This is a challenge in industrial buildings because of deep floor plates and limited openings.','Revised survey questions RT','Daylight, facade exposure, ventilation and openings','Higher score where future units can achieve adequate daylight and ventilation',true],
   ['design','Structural robustness','This factor refers to whether the existing building structure is strong, stable, and flexible enough to support residential conversion. This includes the condition of the frame, loading capacity, age, structural system, and ability to accommodate safety requirements.','Revised survey questions RT','Structural frame condition, loading capacity, age and system flexibility','Higher score where structure can support residential conversion and safety upgrades',true],
   ['services','MEP upgrade cost','This factor refers to upgrading mechanical, electrical, plumbing, drainage, and building services systems. Residential use usually requires different service standards. These upgrades incurs substantial investments.','Revised survey questions RT','MEP, plumbing, drainage and building-services upgrade cost','Higher score where MEP upgrades are less costly and more feasible',true],
   ['services','Vertical circulation upgrade cost','This factor refers to whether the building has suitable lifts, staircases, cores, and accessible routes for residential occupation. Residential conversion requires adequate daily circulation for different user groups, emergency escape, and barrier-free access.','Revised survey questions RT','Lift, stair, core and barrier-free access upgrade cost','Higher score where vertical circulation upgrades are manageable',true],
@@ -105,7 +105,7 @@ const surveyFactorQuestions = {
   'Vacancy ratio': 'How important is "vacancy ratio" when converting industrial buildings for residential use?',
   'Building condition': 'How important is the current "building condition" when converting industrial buildings for residential use?',
   'Spatial adaptability': 'How important is "spatial adaptability" when converting industrial buildings for residential use?',
-  'Day light and natural ventilation access': 'How important is to have adequate levels of daylight and natural ventilation when converting industrial buildings for residential use?',
+  'Daylight and natural ventilation access': 'How important is it to have adequate levels of daylight and natural ventilation when converting industrial buildings for residential use?',
   'Structural robustness': 'How important is "Structural robustness" when converting industrial buildings for residential use?',
   'MEP upgrade cost': 'How important is MEP upgrade cost when converting industrial buildings for residential use?',
   'Vertical circulation upgrade cost': 'How important is "Vertical circulation upgrade cost" when converting industrial buildings for residential use?',
@@ -168,22 +168,12 @@ const stakeholderKnowledgeOptions = [
   'No prior knowledge',
   'Basic awareness',
   'Some professional or academic knowledge',
-  'Strong professional or project-based knowledge'
+  'Strong professional or academic knowledge'
 ];
 const projectInvolvementOptions = [
   'No',
   'Yes, indirectly',
-  'Yes, directly',
-  'Prefer not to say'
-];
-const projectLocationOptions = [
-  'Hong Kong',
-  'Other Asian countries',
-  'Oceania',
-  'Europe',
-  'North America',
-  'South America',
-  'Africa'
+  'Yes, directly'
 ];
 const outcomeLikelihoodScale = [
   { value: 1, label: 'Not likely' },
@@ -206,17 +196,24 @@ const adaptiveReuseOutcomeOptions = [
   { id: 'mixedUseDevelopment', label: 'Mixed-use development' },
   { id: 'communityFacilities', label: 'Community facilities' },
   { id: 'creativeCulturalVenues', label: 'Creative / cultural venues' },
-  { id: 'lightIndustrialMakerSpace', label: 'Light industrial or maker space' },
+  { id: 'retailDevelopment', label: 'Retail development' },
+  { id: 'lightIndustrialMakerSpace', label: 'Light industrial / maker space / workshop' },
+  { id: 'dataCentre', label: 'Data centre' },
   { id: 'others', label: 'Others (please list)' }
 ];
 const demolitionRedevelopmentOutcomeOptions = [
   { id: 'privateResidential', label: 'Private residential' },
+  { id: 'affordableSubsidisedHousing', label: 'Affordable / subsidised housing' },
   { id: 'studentAccommodationYouthHostel', label: 'Student accommodation / youth hostel' },
   { id: 'elderlyHousingCoLiving', label: 'Elderly housing / co-living' },
   { id: 'hotelDevelopment', label: 'Hotel development' },
   { id: 'officeDevelopment', label: 'Office development' },
   { id: 'mixedUseDevelopment', label: 'Mixed-use development' },
+  { id: 'retailDevelopment', label: 'Retail development' },
+  { id: 'communityFacilities', label: 'Community facilities' },
   { id: 'creativeCulturalVenues', label: 'Creative / cultural venues' },
+  { id: 'lightIndustrialMakerSpace', label: 'Light industrial / maker space / workshop' },
+  { id: 'dataCentre', label: 'Data centre' },
   { id: 'others', label: 'Others (please list)' }
 ];
 const outcomeOptionsByStrategy = {
@@ -294,7 +291,7 @@ const defaultFilters = { search: '', district: 'All', zoning: 'All', ownership: 
 const defaultMapLayers = { buildings: true, catchment: true, facilities: true, mtr: true, ozp: true };
 const defaultBaselineFilters = { district: 'All', zoning: 'All', ownership: 'All', risk: 'All', minStoreys: 0, minScore: 0 };
 const minSurveyFactors = 5;
-const maxSurveyFactors = 10;
+const maxSurveyFactors = 5;
 const INFORMED_CONSENT_FORM_URL = 'informed-consent-form.pdf';
 const CONSENT_VERSION = '1.0';
 const CONSENT_CONFIG = Object.freeze({
@@ -320,6 +317,7 @@ let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimens
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
 ], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', replySlip: { participantName: '', consentToParticipate: '', signatureStrokes: [], signatureConfirmed: false, participantLocalDate: new Date().toISOString().slice(0, 10), stakeholderMeetingParticipant: '', contactEmail: '', audioRecordingConsent: '', videoRecordingConsent: '', photographyConsent: '', confidentialityUndertaking: '' }, replySlipValidation: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+state.projectDetails = '';
 let suitabilityMap = null;
 let mapLayerGroups = null;
 let mainOzpOverlay = null;
@@ -353,6 +351,7 @@ function outcomeOptionId(value) {
   const clean = String(value || '').trim();
   if (/^demolished$/i.test(clean) || /^demolition\s*\/\s*redevelopment$/i.test(clean)) return 'demolished';
   if (/^sell\s*land$/i.test(clean) || /^sell\s*land\s*\/\s*dispose\s*of\s*site$/i.test(clean)) return 'sellLand';
+  if (/^light industrial or maker space$/i.test(clean)) return 'lightIndustrialMakerSpace';
   const match = reuseOutcomeOptions.find(option => option.id === clean || option.label === clean);
   return match ? match.id : slugKey(clean);
 }
@@ -405,9 +404,11 @@ function normalizedOutcomeRatings(submission = {}, options = outcomeOptionsForSu
 }
 function outcomeRatingsComplete() {
   if (!state.selectedStrategy) return false;
-  return currentOutcomeOptions().every(option => {
-    const value = state.preferredOutcomeRatings[option.id];
-    return value === undefined || (Number(value) >= 2 && Number(value) <= 4);
+  const validIds = new Set(currentOutcomeOptions().map(option => option.id));
+  const selectedIds = Object.keys(state.preferredOutcomeRatings).filter(id => validIds.has(id));
+  return selectedIds.length === 5 && selectedIds.every(id => {
+    const value = Number(state.preferredOutcomeRatings[id]);
+    return value >= 2 && value <= 4;
   });
 }
 function otherOutcomeComplete() {
@@ -418,8 +419,9 @@ function outcomeRatingsForSubmission() {
 }
 function outcomeRatingsAsLabels(ratings = state.preferredOutcomeRatings, strategy = state.selectedStrategy) {
   const options = currentOutcomeOptions(strategy);
-  const completeRatings = effectiveOutcomeRatings(ratings, strategy, options);
-  return options.map(option => [option.label, outcomeLikelihoodLabel(completeRatings[option.id])]);
+  return options
+    .filter(option => Object.prototype.hasOwnProperty.call(ratings, option.id))
+    .map(option => [option.label, outcomeLikelihoodLabel(ratings[option.id])]);
 }
 const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
 let supabaseAuthClient = null;
@@ -610,6 +612,7 @@ function normalizeObjectValue(value) {
 }
 function factorIdFromValue(value) {
   const clean = String(value || '').trim();
+  if (/^day\s*light and natural ventilation access$/i.test(clean)) return 'CF-13';
   const compact = clean.toLowerCase().replace(/[^a-z0-9]+/g, '');
   const match = criticalFactors.find(factor => factor.id === clean || factor.factor_name === clean || factor.factor_name.toLowerCase().replace(/[^a-z0-9]+/g, '') === compact);
   return match ? match.id : clean;
@@ -644,6 +647,7 @@ function normaliseSurveySubmission(row = {}) {
     adaptiveReuseKnowledge: row.adaptive_reuse_knowledge || row.adaptiveReuseKnowledge || null,
     projectInvolvement: row.project_involvement || row.projectInvolvement || null,
     projectLocation: row.project_location || row.projectLocation || null,
+    projectDetails: row.project_details || row.projectDetails || null,
     selectedFactors: row.selected_factors || row.selectedFactors || [],
     factorRanking: row.factor_ranking || row.factorRanking || row.top_factor_ids || [],
     factorImportanceScores: row.factor_importance_scores || row.factorImportanceScores || {},
@@ -666,6 +670,7 @@ function normaliseSurveySubmission(row = {}) {
   const adaptiveReuseKnowledge = base.adaptiveReuseKnowledge || base.adaptive_reuse_knowledge || row.adaptive_reuse_knowledge || row.adaptiveReuseKnowledge || null;
   const projectInvolvement = base.projectInvolvement || base.project_involvement || row.project_involvement || row.projectInvolvement || null;
   const projectLocation = base.projectLocation || base.project_location || row.project_location || row.projectLocation || null;
+  const projectDetails = base.projectDetails || base.project_details || row.project_details || row.projectDetails || null;
   const selectedFactors = normalizeArrayValue(base.selectedFactors || base.selected_factors || row.selected_factors || row.selectedFactors).map(factorIdFromValue).filter(Boolean);
   const factorRanking = normalizeArrayValue(base.factorRanking || base.factor_ranking || base.top_factor_ids || row.factor_ranking || row.factorRanking || row.top_factor_ids).map(factorIdFromValue).filter(Boolean);
   let factorImportanceScores = normalizedFactorImportanceScores({
@@ -712,6 +717,8 @@ function normaliseSurveySubmission(row = {}) {
     project_involvement: projectInvolvement,
     projectLocation,
     project_location: projectLocation,
+    projectDetails,
+    project_details: projectDetails,
     submittedAt,
     submitted_at: submittedAt,
     selectedFactors,
@@ -890,7 +897,7 @@ function surveySubmissionPayload() {
     industrialOwnershipType: state.industrialOwnershipType || null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
     projectInvolvement: state.projectInvolvement || null,
-    projectLocation: shouldAskProjectLocation() ? state.projectLocation || null : null
+    projectDetails: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null
   };
   return {
     stakeholder_group: state.participantGroup,
@@ -899,7 +906,7 @@ function surveySubmissionPayload() {
     industrial_ownership_type: state.industrialOwnershipType || null,
     adaptive_reuse_knowledge: state.adaptiveReuseKnowledge || null,
     project_involvement: state.projectInvolvement || null,
-    project_location: shouldAskProjectLocation() ? state.projectLocation || null : null,
+    project_details: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
     selected_strategy: state.selectedStrategy,
     preferred_outcome_ratings: outcomeRatings,
     other_outcome_text: Number(outcomeRatings.others) >= 2 ? String(state.otherOutcomeText || '').trim() : null,
@@ -933,7 +940,7 @@ function surveySubmissionPayload() {
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
     projectInvolvement: state.projectInvolvement || null,
-    projectLocation: shouldAskProjectLocation() ? state.projectLocation || null : null,
+    projectDetails: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
     selectedStrategy: state.selectedStrategy,
     preferredOutcomeRatings: outcomeRatings,
     otherOutcomeText: Number(outcomeRatings.others) >= 2 ? String(state.otherOutcomeText || '').trim() : null,
@@ -1181,7 +1188,7 @@ function surveyRating(factorId) {
 }
 function selectedTopFactorIds() { return state.surveyFactorRanking.slice(0, 3); }
 function selectedReuseOutcomes() { return currentOutcomeOptions().filter(option => Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, option.id)).map(option => option.label); }
-function shouldAskProjectLocation(value = state.projectInvolvement) { return value === 'Yes, indirectly' || value === 'Yes, directly'; }
+function shouldAskProjectDetails(value = state.projectInvolvement) { return value === 'Yes, indirectly' || value === 'Yes, directly'; }
 function stakeholderGroupLabel(key) {
   const clean = String(key || '').trim();
   const match = stakeholderWeightGroups.find(group => group.key === clean || group.label === clean);
@@ -1466,6 +1473,18 @@ function submissionTopOutcome(submission) {
     .sort((a, b) => b.value - a.value || a.option.label.localeCompare(b.option.label));
   return supported.length ? supported[0].option.label + ' (' + outcomeLikelihoodLabel(supported[0].value) + ')' : 'Not specified';
 }
+function submissionProjectDetails(submission) {
+  return submission.projectDetails || submission.project_details || null;
+}
+function submissionLegacyProjectLocation(submission) {
+  return submission.projectLocation || submission.project_location || null;
+}
+function submissionProjectSummary(submission) {
+  const details = submissionProjectDetails(submission);
+  if (details) return details;
+  const legacyLocation = submissionLegacyProjectLocation(submission);
+  return legacyLocation ? 'Legacy location: ' + legacyLocation : 'Not specified';
+}
 function questionnaireFilteredSubmissions() {
   const filters = state.questionnaireResultFilters;
   return state.surveySubmissions.filter(submission => {
@@ -1485,6 +1504,8 @@ function questionnaireFilteredSubmissions() {
       submission.adaptiveReuseKnowledge,
       submission.projectInvolvement,
       submission.projectLocation,
+      submission.projectDetails,
+      submission.project_details,
       submission.comments,
       ...normalizedSelectedFactorIds(submission).map(factorLabel),
       ...Object.entries(normalizedOutcomeRatings(submission)).filter(([, value]) => Number(value) >= 2).map(([id]) => outcomeOptionLabel(id))
@@ -1568,7 +1589,7 @@ function questionnaireSummary(submissions) {
     strategyRows,
     knowledgeRows: countRows(submissions.map(submission => submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge)),
     involvementRows: countRows(submissions.map(submission => submission.projectInvolvement || submission.project_involvement)),
-    locationRows: countRows(submissions.map(submission => submission.projectLocation || submission.project_location))
+    locationRows: countRows(submissions.map(submission => submission.projectLocation || submission.project_location).filter(Boolean))
   };
 }
 function renderMiniCountTable(title, rows) {
@@ -1653,7 +1674,7 @@ function renderQuestionnaireResults() {
   ].map(([label, value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   renderQuestionnaireResultFilters(filtered.length);
   const profile = document.getElementById('questionnaireProfileSummary');
-  if (profile) profile.innerHTML = renderMiniCountTable('Selected strategy', summary.strategyRows) + renderMiniCountTable('Stakeholder group', summary.stakeholderRows) + renderMiniCountTable('Knowledge / experience', summary.knowledgeRows) + renderMiniCountTable('Project involvement', summary.involvementRows) + renderMiniCountTable('Project location', summary.locationRows);
+  if (profile) profile.innerHTML = renderMiniCountTable('Selected strategy', summary.strategyRows) + renderMiniCountTable('Stakeholder group', summary.stakeholderRows) + renderMiniCountTable('Knowledge / experience', summary.knowledgeRows) + renderMiniCountTable('Project involvement', summary.involvementRows) + (summary.locationRows.length ? renderMiniCountTable('Legacy project location', summary.locationRows) : '');
   renderQuestionnaireFactorTables(summary.factorRows, filtered.length);
   renderQuestionnaireOutcomeTable(summary.outcomeRows, filtered.length);
   renderQuestionnaireSubmissionTable(filtered);
@@ -1663,13 +1684,13 @@ function renderQuestionnaireResultFilters(filteredCount) {
   if (!el) return;
   const filters = state.questionnaireResultFilters;
   const involvementOptions = countRows(state.surveySubmissions.map(submission => submission.projectInvolvement || submission.project_involvement)).map(row => row.label);
-  const locationOptions = countRows(state.surveySubmissions.map(submission => submission.projectLocation || submission.project_location)).map(row => row.label);
+  const locationOptions = countRows(state.surveySubmissions.map(submission => submission.projectLocation || submission.project_location).filter(Boolean)).map(row => row.label);
   if (filters.projectInvolvement !== 'All' && !involvementOptions.includes(filters.projectInvolvement)) filters.projectInvolvement = 'All';
   if (filters.projectLocation !== 'All' && !locationOptions.includes(filters.projectLocation)) filters.projectLocation = 'All';
   if (filters.stakeholderGroup !== 'All' && !stakeholderWeightGroups.some(group => group.key === filters.stakeholderGroup)) filters.stakeholderGroup = 'All';
   el.innerHTML = '<label>Stakeholder group<select id="questionnaireFilterStakeholder"><option value="All">All</option>'+stakeholderWeightGroups.map(group => '<option value="'+h(group.key)+'">'+h(group.label)+'</option>').join('')+'</select></label>' +
     '<label>Project involvement<select id="questionnaireFilterInvolvement"><option>All</option>'+involvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
-    '<label>Project location<select id="questionnaireFilterLocation"><option>All</option>'+locationOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
+    (locationOptions.length ? '<label>Legacy project location<select id="questionnaireFilterLocation"><option>All</option>'+locationOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' : '') +
     '<label>Date from<input id="questionnaireFilterDateFrom" type="date" /></label>' +
     '<label>Date to<input id="questionnaireFilterDateTo" type="date" /></label>' +
     '<label>Search<input id="questionnaireFilterSearch" type="search" placeholder="Search responses" /></label>';
@@ -1683,7 +1704,7 @@ function renderQuestionnaireResultFilters(filteredCount) {
   };
   bind('questionnaireFilterStakeholder', 'stakeholderGroup');
   bind('questionnaireFilterInvolvement', 'projectInvolvement');
-  bind('questionnaireFilterLocation', 'projectLocation');
+  if (locationOptions.length) bind('questionnaireFilterLocation', 'projectLocation');
   bind('questionnaireFilterDateFrom', 'dateFrom');
   bind('questionnaireFilterDateTo', 'dateTo');
   bind('questionnaireFilterSearch', 'search');
@@ -1714,7 +1735,7 @@ function renderQuestionnaireSubmissionTable(submissions) {
     table.innerHTML = '<tbody><tr><td><div class="empty-state">No questionnaire submissions match these filters.</div></td></tr></tbody>';
     return;
   }
-  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project location</th><th>Selected factors</th><th>Top-ranked factor</th><th>Top supported outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(notSpecified(submission.projectLocation || submission.project_location))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><div class="row-actions"><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button>'+(teamAccessUnlocked() ? '<button class="ghost-button mini-button warning-button" data-questionnaire-remove="'+h(submissionDisplayId(submission, index))+'" type="button">Remove</button>' : '')+'</div></td></tr>').join('') + '</tbody>';
+  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project details</th><th>Selected factors</th><th>Top-ranked factor</th><th>Top supported outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(submissionProjectSummary(submission))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><div class="row-actions"><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button>'+(teamAccessUnlocked() ? '<button class="ghost-button mini-button warning-button" data-questionnaire-remove="'+h(submissionDisplayId(submission, index))+'" type="button">Remove</button>' : '')+'</div></td></tr>').join('') + '</tbody>';
   document.querySelectorAll('[data-questionnaire-detail]').forEach(button => button.onclick = e => openQuestionnaireSubmissionDetail(e.currentTarget.dataset.questionnaireDetail));
   document.querySelectorAll('[data-questionnaire-remove]').forEach(button => button.onclick = e => openQuestionnaireRemoveModal(e.currentTarget.dataset.questionnaireRemove));
 }
@@ -1735,9 +1756,12 @@ function openQuestionnaireSubmissionDetail(id) {
   const consentAccepted = submission.consentAccepted || submission.consent_accepted || consent.accepted;
   const consentedAt = submission.consentedAt || submission.consented_at || consent.acceptedAt || consent.accepted_at;
   const consentVersion = submission.consentVersion || submission.consent_version || consent.consentVersion || consent.consent_version;
+  const projectDetails = submissionProjectDetails(submission);
+  const legacyProjectLocation = submissionLegacyProjectLocation(submission);
+  const projectDetailRows = '<div><dt>Project name(s) and country/city</dt><dd>'+h(notSpecified(projectDetails))+'</dd></div>' + (legacyProjectLocation ? '<div><dt>Legacy project location</dt><dd>'+h(legacyProjectLocation)+'</dd></div>' : '');
   detail.hidden = false;
   detail.setAttribute('aria-hidden', 'false');
-  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div><div><dt>Project location</dt><dd>'+h(notSpecified(submission.projectLocation || submission.project_location))+'</dd></div><div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeLikelihoodLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) >= 2 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
+  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div>'+projectDetailRows+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeLikelihoodLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) >= 2 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
   detail.querySelectorAll('[data-close-questionnaire-detail]').forEach(button => button.onclick = closeQuestionnaireSubmissionDetail);
 }
 function closeQuestionnaireSubmissionDetail() {
@@ -1792,7 +1816,7 @@ function exportQuestionnaireResultsCsv() {
   const submissions = questionnaireFilteredSubmissions();
   const outcomeHeaders = reuseOutcomeOptions.map(option => 'outcome_' + option.id);
   const scoreHeaders = criticalFactors.map(factor => 'importance_score_' + factor.id);
-  const headers = ['submission_id','submitted_at','stakeholder_group','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_location','selected_strategy','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
+  const headers = ['submission_id','submitted_at','stakeholder_group','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_details','project_location','selected_strategy','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
   const rows = submissions.map((submission, index) => {
     const scores = normalizedFactorImportanceScores(submission);
     const outcomes = normalizedOutcomeRatings(submission, outcomeOptionsForSubmission(submission));
@@ -1804,6 +1828,7 @@ function exportQuestionnaireResultsCsv() {
       submission.statutoryBodyType || submission.statutory_body_type || '',
       submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge || '',
       submission.projectInvolvement || submission.project_involvement || '',
+      submissionProjectDetails(submission) || '',
       submission.projectLocation || submission.project_location || '',
       strategyLabel(selectedStrategyForSubmission(submission)),
       submission.otherOutcomeText || submission.other_outcome_text || '',
@@ -2386,8 +2411,8 @@ function renderQuestionnaireFactorTable(pool) {
       return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head">'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'<strong>'+explainTerms(factor.factor_name)+'</strong></div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
     }).join('') + '</div></section>';
   }).join('');
-  const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Maximum 10 factors selected. Deselect one factor before adding another.</p>' : '';
-  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Select 5 to 10 key factors</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / '+h(maxSurveyFactors)+' factors</span></div><p class="map-note">Select 5 to 10 factors that you consider most important for assessing industrial-to-residential adaptive reuse suitability. Then use the sliders to provide importance scores for your selected factors.</p>'+limitMessage+'<div class="factor-choice-layout">'+rows+'</div></div>';
+  const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Five factors selected. Deselect one factor before choosing another.</p>' : '';
+  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Concerns</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / 5 factors</span></div><p class="map-note">Challenges, uncertainties, complexities and safety issues are common concerns, while there are also prospects that influence decision-making when it comes to adaptive reuse or redevelopment.</p><p class="map-note">Please select 5 factors that you consider most important and use the slider bar to indicate their importance.</p>'+limitMessage+'<div class="factor-choice-layout">'+rows+'</div></div>';
 }
 function renderRankingList(selected) {
   const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
@@ -2413,8 +2438,8 @@ function renderRankingList(selected) {
   }).join('');
   const emptyMessage = selected.length
     ? '<p class="map-note">Ranking will be complete when all selected factors appear here.</p>'
-    : '<div class="empty-state">Select between 5 and 10 factors to create the ranking list.</div>';
-  return '<div id="rankingPanel" class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Factors are ranked automatically according to their importance scores. To change the order, use Up or Down and adjust the factor’s importance score when prompted.</p>'+(items ? '<div class="ranking-list" aria-live="polite">'+items+'</div>' : emptyMessage)+'</div>';
+    : '<div class="empty-state">Select exactly 5 factors to create the ranking list.</div>';
+  return '<div id="rankingPanel" class="ranking-panel"><div class="selection-heading"><strong>Ranking</strong><span>'+h(selected.length)+' selected</span></div><p class="map-note">Factors are ranked automatically according to their importance scores. The factor with the highest score is ranked first.</p>'+(items ? '<div class="ranking-list" aria-live="polite">'+items+'</div>' : emptyMessage)+'</div>';
 }
 function renderRankingAdjustmentPanel() {
   const context = rankingAdjustmentContext();
@@ -2430,10 +2455,10 @@ function renderRankingAdjustmentPanel() {
   return '<div id="rankingAdjustmentModal" class="submission-detail-modal" aria-hidden="false"><div class="submission-detail-backdrop" data-close-ranking-adjustment></div><article class="submission-detail-card ranking-adjustment-card" role="dialog" aria-modal="true" aria-labelledby="rankingAdjustmentTitle"><h2 id="rankingAdjustmentTitle">Adjust importance score</h2><p>'+h(guidance)+'</p><p>'+h(specific)+'</p><dl class="ranking-adjustment-summary"><div><dt>Current score</dt><dd>'+h(context.currentScore)+'</dd></div><div><dt>Required score</dt><dd>'+h(rangeText)+'</dd></div></dl><label>New score<input id="rankingAdjustmentScore" type="number" min="'+h(context.min)+'" max="'+h(context.max)+'" step="1" value="'+h(state.rankingAdjustmentValue || context.currentScore)+'" /></label>'+(state.rankingAdjustmentError ? '<p class="consent-validation">'+h(state.rankingAdjustmentError)+'</p>' : '')+'<div class="access-dialog-actions"><button class="ghost-button" data-close-ranking-adjustment type="button">Cancel</button><button id="confirmRankingAdjustment" class="primary-button" type="button">Confirm new score</button></div></article></div>';
 }
 function renderImportanceSliders(selected) {
-  if (!selected.length) return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>0-100 slider</span></div><p class="map-note">Select between 5 and 10 factors first. Slider bars will appear here for the factors you selected.</p><div class="empty-state">Select factors to rate their importance.</div></div>';
+  if (!selected.length) return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>0-100 slider</span></div><p class="map-note">Select exactly 5 factors first. Slider bars will appear here for the factors you selected.</p><div class="empty-state">Select factors to rate their importance.</div></div>';
   return '<div class="importance-slider-panel"><div class="selection-heading"><strong>Importance weighting</strong><span>'+h(selected.length)+' sliders</span></div><p class="map-note">Use the sliders to indicate how important each selected factor is. A higher score means that the factor is more important.</p><div class="importance-slider-list">' + selected.map(factor => {
     const value = surveyRating(factor.id);
-    return '<label class="importance-slider-row"><span><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em><b>Importance score: <output data-survey-rating-value="'+h(factor.id)+'">'+h(value)+'</output> / 100</b></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(value)+'" aria-label="'+h(factor.factor_name)+' importance score" /><div class="slider-scale"><small>0 Not important</small><small>25 Slightly important</small><small>50 Moderately important</small><small>75 Important</small><small>100 Extremely important</small></div></label>';
+    return '<label class="importance-slider-row"><span><strong>'+explainTerms(factor.factor_name)+'</strong><em>'+h(dimensionLabel(factor.dimension))+'</em><b>Importance score: <output data-survey-rating-value="'+h(factor.id)+'">'+h(value)+'</output> / 100</b></span><input data-survey-rating="'+h(factor.id)+'" type="range" min="0" max="100" value="'+h(value)+'" aria-label="'+h(factor.factor_name)+' importance score" /><div class="slider-scale"><small>0 Not important</small><small>100 Extremely important</small></div></label>';
   }).join('') + '</div></div>';
 }
 function renderStakeholderBackgroundQuestions() {
@@ -2441,31 +2466,33 @@ function renderStakeholderBackgroundQuestions() {
   const statutoryQuestion = state.participantGroup === 'Statutory body'
     ? '<label>Is your statutory body primarily public-sector or private-sector related?<select id="statutoryBodyType"><option value="">Select answer</option>'+statutoryBodyTypeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>'
     : '';
-  const projectLocationQuestion = shouldAskProjectLocation()
-    ? '<label>Where was the adaptive reuse or redevelopment project located?<span class="field-helper">Optional. Select the main project location if applicable.</span><select id="projectLocation"><option value="">Select project location</option>'+projectLocationOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>'
+  const projectDetailsQuestion = shouldAskProjectDetails()
+    ? '<label>Please provide the project name(s) and country/city<span class="field-helper">Please enter the project name(s) and their country or city.</span><textarea id="projectDetails" rows="3" placeholder="ABC Industrial Building Conversion, Hong Kong">'+h(state.projectDetails || '')+'</textarea></label>'
     : '';
   return statutoryQuestion + '<label>Do you have knowledge or experience related to adaptive reuse or redevelopment?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
-    '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectLocationQuestion;
+    '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectDetailsQuestion;
 }
 function renderOutcomeLikelihoodScale() {
   const strategyButtons = outcomeStrategyOptions.map(option => '<button class="strategy-choice '+(state.selectedStrategy === option.id ? 'selected' : '')+'" data-outcome-strategy="'+h(option.id)+'" type="button" aria-pressed="'+(state.selectedStrategy === option.id ? 'true' : 'false')+'"><strong>'+h(option.label)+'</strong></button>').join('');
-  if (!state.selectedStrategy) return '<div class="reuse-outcome-box"><h3>Preferred reuse / redevelopment strategy and outcome</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div></div>';
+  if (!state.selectedStrategy) return '<div class="reuse-outcome-box"><h3>Preferred development strategy</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div></div>';
   const options = currentOutcomeOptions();
+  const selectedCount = Object.keys(state.preferredOutcomeRatings).filter(id => options.some(option => option.id === id)).length;
   const rows = options.map(option => {
     const selectedValue = Number(state.preferredOutcomeRatings[option.id]);
     const isChecked = Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, option.id);
+    const isDisabled = !isChecked && selectedCount >= 5;
     const cells = outcomeLikelihoodScale.filter(scale => scale.value > 1).map(scale => {
       const checked = selectedValue === scale.value;
       return '<label class="likelihood-option '+(checked ? 'selected' : '')+'"><input data-reuse-likelihood="'+h(option.id)+'" name="reuse-likelihood-'+h(option.id)+'" type="radio" value="'+h(scale.value)+'" '+(checked ? 'checked' : '')+' /><span>'+h(scale.label)+'</span></label>';
     }).join('');
     const otherInput = option.id === 'others' && isChecked ? '<label class="other-outcome-input">Please specify the other outcome<input id="otherOutcomeText" type="text" value="'+h(state.otherOutcomeText || '')+'" /></label>' : '';
-    return '<div class="outcome-likelihood-row '+(isChecked ? 'selected' : '')+'"><label class="outcome-check"><input data-reuse-outcome-toggle="'+h(option.id)+'" type="checkbox" '+(isChecked ? 'checked' : '')+' /><span>'+h(option.label)+'</span></label>'+(isChecked ? '<div class="likelihood-followup"><strong>How likely?</strong><div class="likelihood-options">'+cells+'</div>'+(selectedValue >= 2 ? '' : '<em>Please select a likelihood level.</em>')+otherInput+'</div>' : '')+'</div>';
+    return '<div class="outcome-likelihood-row '+(isChecked ? 'selected' : '')+'"><label class="outcome-check"><input data-reuse-outcome-toggle="'+h(option.id)+'" type="checkbox" '+(isChecked ? 'checked' : '')+' '+(isDisabled ? 'disabled' : '')+' /><span>'+h(option.label)+'</span></label>'+(isChecked ? '<div class="likelihood-followup"><strong>Level of preference</strong><div class="likelihood-options">'+cells+'</div>'+(selectedValue >= 2 ? '' : '<em>Please select a preference level.</em>')+otherInput+'</div>' : '')+'</div>';
   }).join('');
   const subheading = state.selectedStrategy === 'adaptiveReuse' ? 'Adaptive reuse outcomes' : 'Demolition & redevelopment outcomes';
-  return '<div class="reuse-outcome-box"><h3>Preferred reuse / redevelopment strategy and outcome</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div>'+(state.outcomeResetNotice ? '<p class="selection-warning">'+h(state.outcomeResetNotice)+'</p>' : '')+'<h4>'+h(subheading)+'</h4><p class="map-note">Tick the outcomes you may support, then indicate how likely you would support each selected outcome. Unticked outcomes will be treated as ‘Not likely’.</p><div class="outcome-likelihood-table">'+rows+'</div></div>';
+  return '<div class="reuse-outcome-box"><h3>Preferred development strategy</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div>'+(state.outcomeResetNotice ? '<p class="selection-warning">'+h(state.outcomeResetNotice)+'</p>' : '')+'<div class="selection-heading"><h4>'+h(subheading)+'</h4><span>Selected '+h(selectedCount)+' / 5 outcomes</span></div><p class="map-note">Select five options and indicate the level of preference.</p><div class="outcome-likelihood-table">'+rows+'</div></div>';
 }
 function renderParticipantInformationCard() {
-  return '<div class="participant-info-card"><h3>Participant information and consent</h3><p>You are invited to participate in an academic study on the adaptive reuse of vacant or underused industrial buildings for residential use in Hong Kong.</p><p>Adaptive reuse process inherits challenges due to multiple factors influencing the decision-making process. This research aims to identify these associated critical factors and develop a model for optimizing decision-making process. The survey provides you the opportunity to provide opinion related to adaptive reuse process on important factors listed below.</p><p>Responding to this survey is entirely voluntary. The online questionnaire will take approximately 5–15 minutes. Your responses will be used for research purposes and normally reported anonymously or in aggregate.</p><p>If you do agree to participate, please read the ‘Informed Consent Form’ attached in the survey and provide us your consent through the reply slip below.</p><p class="participant-confidentiality-note">This questionnaire is for academic research purposes. Responses will be treated with confidentiality.</p><a class="consent-form-link" href="'+h(INFORMED_CONSENT_FORM_URL)+'" target="_blank" rel="noopener noreferrer">Read the full Informed Consent Form</a></div>';
+  return '<div class="participant-info-card"><h3>Participant information and consent</h3><p>You are invited to participate in an academic study on the adaptive reuse of vacant or underused industrial buildings in Hong Kong.</p><p>Adaptive reuse refers to the process of repurposing existing buildings for new functions, effectively giving them a new lease on life.</p><p>The adaptive reuse process involves challenges due to the multiple factors that influence decision-making. This research aims to identify these critical factors and develop a model for optimising the decision-making process. The survey provides you with an opportunity to give your opinion on the factors listed below.</p><p>Responding to this survey is entirely voluntary. This survey will take approximately 10–15 minutes. Your responses will be used for research purposes and will be treated with confidentiality.</p><p>If you agree to participate, please read the attached ‘Informed Consent Form’ and provide your consent through the reply slip below.</p><a class="consent-form-link" href="'+h(INFORMED_CONSENT_FORM_URL)+'" target="_blank" rel="noopener noreferrer">Read the full Informed Consent Form</a></div>';
 }
 function renderConsentSection() {
   const invalidAttrs = state.consentValidationMessage ? ' aria-invalid="true" aria-describedby="surveyConsentValidation"' : '';
@@ -2495,12 +2522,12 @@ function renderSurveyReviewPanel(selected) {
   const otherOutcomeReview = Number(state.preferredOutcomeRatings.others) >= 2 ? '<li><strong>Other outcome specified</strong><span>'+h(state.otherOutcomeText || 'Not specified')+'</span></li>' : '';
   const statutoryReview = state.participantGroup === 'Statutory body' ? '<div><dt>Statutory body type</dt><dd>'+h(state.statutoryBodyType || 'Not provided')+'</dd></div>' : '';
   const ownershipReview = state.participantGroup === 'Building owner / landlord' ? '<div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not provided')+'</dd></div>' : '';
-  const projectLocationReview = shouldAskProjectLocation() ? '<div><dt>Project location</dt><dd>'+h(state.projectLocation || 'Not specified')+'</dd></div>' : '';
+  const projectDetailsReview = shouldAskProjectDetails() ? '<div><dt>Project name(s) and country/city</dt><dd>'+h(String(state.projectDetails || '').trim() || 'Not specified')+'</dd></div>' : '';
   const slip = state.replySlip;
   const meetingReview = slip.stakeholderMeetingParticipant === 'yes' ? '<div><dt>Audio-recording consent</dt><dd>'+h(slip.audioRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Video-recording consent</dt><dd>'+h(slip.videoRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Photography consent</dt><dd>'+h(slip.photographyConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Confidentiality undertaking</dt><dd>'+h(slip.confidentialityUndertaking === 'yes' ? 'Yes' : 'No')+'</dd></div>' : '';
   const contactEmailReview = slip.stakeholderMeetingParticipant === 'yes' ? '<div><dt>Contact email</dt><dd>'+h(normaliseContactEmail(slip.contactEmail))+'</dd></div>' : '';
   const replySlipReview = '<h4>Reply slip</h4><dl><div><dt>Participant name</dt><dd>'+h(slip.participantName.trim())+'</dd></div><div><dt>Consent to participate</dt><dd>Agreed</dd></div><div><dt>Electronic signature</dt><dd>Provided</dd></div><div><dt>Date</dt><dd>'+h(slip.participantLocalDate)+'</dd></div><div><dt>Electronic-signature confirmation</dt><dd>Confirmed</dd></div><div><dt>Stakeholder meeting / interview / forum participation</dt><dd>'+h(slip.stakeholderMeetingParticipant === 'yes' ? 'Yes' : 'No')+'</dd></div>'+contactEmailReview+meetingReview+'</dl>';
-  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience related to adaptive reuse or redevelopment</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectLocationReview+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div></dl><h4>Factor importance and ranking</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol><h4>Preferred outcomes</h4><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul>'+replySlipReview+'<p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
+  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><h4>Participant’s profile</h4><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectDetailsReview+'</dl><h4>Preferred development strategy</h4><dl><div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div></dl><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul><h4>Concerns</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol>'+replySlipReview+'<p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -2511,7 +2538,8 @@ function renderSurveyCriteria() {
     : '';
   document.getElementById('surveyCriteriaList').innerHTML =
     (teamAccessUnlocked() ? renderParticipantInformationCard() : '') +
-    '<div class="criteria-card participant-card"><header><strong>Participant profile</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+renderStakeholderBackgroundQuestions()+'</div>' +
+    '<div class="panel-heading questionnaire-section-heading"><h2>Participant’s profile</h2></div>' +
+    '<div class="criteria-card participant-card"><header><strong>Background questions</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+renderStakeholderBackgroundQuestions()+'</div>' +
     renderQuestionnaireFactorTable(pool);
   const participantGroup = document.getElementById('surveyParticipantGroup');
   participantGroup.value = state.participantGroup;
@@ -2522,6 +2550,7 @@ function renderSurveyCriteria() {
     state.adaptiveReuseKnowledge = '';
     state.projectInvolvement = '';
     state.projectLocation = '';
+    state.projectDetails = '';
     setSurveyInProgress();
     renderSurveyCriteria();
   };
@@ -2557,16 +2586,16 @@ function renderSurveyCriteria() {
     projectInvolvement.value = state.projectInvolvement;
     projectInvolvement.onchange = e => {
       state.projectInvolvement = e.target.value;
-      if (!shouldAskProjectLocation()) state.projectLocation = '';
+      if (!shouldAskProjectDetails()) state.projectDetails = '';
       setSurveyInProgress();
       renderSurveyCriteria();
     };
   }
-  const projectLocation = document.getElementById('projectLocation');
-  if (projectLocation) {
-    projectLocation.value = state.projectLocation;
-    projectLocation.onchange = e => {
-      state.projectLocation = e.target.value;
+  const projectDetails = document.getElementById('projectDetails');
+  if (projectDetails) {
+    projectDetails.value = state.projectDetails;
+    projectDetails.oninput = e => {
+      state.projectDetails = e.target.value;
       setSurveyInProgress();
       updateSurveySummary();
     };
@@ -2624,8 +2653,14 @@ function renderSurveyCriteria() {
   });
   document.querySelectorAll('[data-reuse-outcome-toggle]').forEach(input => input.onchange = e => {
     const id = e.target.dataset.reuseOutcomeToggle;
-    if (e.target.checked) state.preferredOutcomeRatings[id] = null;
+    if (e.target.checked && Object.keys(state.preferredOutcomeRatings).length < 5) state.preferredOutcomeRatings[id] = null;
     else {
+      if (e.target.checked) {
+        e.target.checked = false;
+        state.outcomeResetNotice = 'Select exactly five outcomes. Deselect one outcome before choosing another.';
+        renderSurveyCriteria();
+        return;
+      }
       delete state.preferredOutcomeRatings[id];
       if (id === 'others') state.otherOutcomeText = '';
     }
@@ -2714,8 +2749,7 @@ function updateSurveySummary() {
   const selected = selectedQuestionnaireFactors();
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
   const missingBackground = !!state.participantGroup && (!state.adaptiveReuseKnowledge || !state.projectInvolvement);
-  const tooFewFactors = selected.length < minSurveyFactors;
-  const tooManyFactors = selected.length > maxSurveyFactors;
+  const incorrectFactorCount = selected.length !== 5;
   const missingImportanceScores = selected.some(factor => !Number.isFinite(Number(state.surveyRatings[factor.id])));
   const missingStrategy = !state.selectedStrategy;
   const missingOutcomeLikelihoods = !outcomeRatingsComplete();
@@ -2738,11 +2772,8 @@ function updateSurveySummary() {
   } else if (missingBackground) {
     message = 'Please complete the stakeholder background questions before submitting.';
     type = 'has-error';
-  } else if (tooFewFactors) {
-    message = 'Please select 5 to 10 key factors before ranking.';
-    type = 'has-error';
-  } else if (tooManyFactors) {
-    message = 'You can select up to 10 key factors only.';
+  } else if (incorrectFactorCount) {
+    message = 'Please select exactly 5 factors before continuing.';
     type = 'has-error';
   } else if (missingImportanceScores) {
     message = 'Please provide an importance score for every selected factor.';
@@ -2751,7 +2782,7 @@ function updateSurveySummary() {
     message = 'Please select one reuse or redevelopment strategy before submitting.';
     type = 'has-error';
   } else if (missingOutcomeLikelihoods) {
-    message = 'Please choose a likelihood level for each selected outcome.';
+    message = 'Please select exactly five outcomes and indicate the level of preference for each selected outcome.';
     type = 'has-error';
   } else if (missingOtherOutcomeText) {
     message = 'Please specify the other outcome you selected.';
@@ -2808,6 +2839,13 @@ async function confirmSurveySubmissionHandler() {
     return;
   }
   cleanQuestionnaireSelection();
+  const backgroundComplete = !!state.participantGroup && !!state.adaptiveReuseKnowledge && !!state.projectInvolvement;
+  if (!backgroundComplete || selectedQuestionnaireFactors().length !== 5 || !state.selectedStrategy || !outcomeRatingsComplete() || !otherOutcomeComplete()) {
+    state.surveyReviewOpen = false;
+    renderSurveyCriteria();
+    updateSurveySummary();
+    return;
+  }
   updateRankingFromImportanceScores(selectedQuestionnaireFactors(), state.surveyFactorRanking);
   if (!factorRankingInSync(selectedQuestionnaireFactors())) {
     updateSurveySummary();
