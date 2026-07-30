@@ -2538,6 +2538,7 @@ function renderSurveyCriteria() {
     : '';
   document.getElementById('surveyCriteriaList').innerHTML =
     (teamAccessUnlocked() ? renderParticipantInformationCard() : '') +
+    renderReplySlip() +
     '<div class="panel-heading questionnaire-section-heading"><h2>Participant’s profile</h2></div>' +
     '<div class="criteria-card participant-card"><header><strong>Background questions</strong><span>Required</span></header><label>Stakeholder group<select id="surveyParticipantGroup"><option value="">Select stakeholder group</option>'+surveyStakeholderGroups.map(group => '<option>'+h(group)+'</option>').join('')+'</select></label>'+ownershipQuestion+renderStakeholderBackgroundQuestions()+'</div>' +
     renderQuestionnaireFactorTable(pool);
@@ -2621,7 +2622,6 @@ function renderSurveyCriteria() {
     renderImportanceSliders(selected) +
     renderRankingList(selected) +
     renderOutcomeLikelihoodScale() +
-    renderReplySlip() +
     submitButtonHtml +
     renderSurveyReviewPanel(selected) +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>' +
