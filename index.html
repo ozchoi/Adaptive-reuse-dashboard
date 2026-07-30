@@ -13,6 +13,19 @@
       <div class="header-meta">
         <h1 id="appTitle">Hong Kong Industrial Building Reuse Suitability Dashboard</h1>
       </div>
+      <nav class="tabs" aria-label="Dashboard tabs">
+        <button class="tab" data-tab="overview" data-mode="decision">Portfolio Overview</button>
+        <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
+        <button class="tab active" data-tab="survey" data-mode="research">Questionnaire</button>
+        <button class="tab" data-tab="questionnaire-results" data-mode="research">Questionnaire Results</button>
+        <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
+        <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
+        <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
+        <button class="tab" data-tab="map" data-mode="decision">Suitability Map</button>
+        <button class="tab" data-tab="comparison" data-mode="decision">Building Comparison</button>
+        <button class="tab" data-tab="scoring" data-mode="decision">Score Breakdown</button>
+        <button class="tab" data-tab="scenarios" data-mode="decision">Policy Scenario Analysis</button>
+      </nav>
       <div id="participantHeaderInfo"></div>
       <p id="appSubtitle" class="lede">An indicative decision-support tool for screening industrial-to-residential adaptive reuse opportunities.</p>
       <p id="appCredit" class="credit">Academic research prototype. Outputs are indicative and subject to verification.</p>
@@ -54,20 +67,6 @@
         <button data-view-mode="decision" type="button">Decision Dashboard</button>
         <button class="active" data-view-mode="research" type="button">Research Workflow</button>
       </div>
-      <nav class="tabs" aria-label="Dashboard tabs">
-        <button class="tab" data-tab="overview" data-mode="decision">Portfolio Overview</button>
-        <button class="tab" data-tab="factors" data-mode="research">Assessment Factors</button>
-        <button class="tab active" data-tab="survey" data-mode="research">Questionnaire</button>
-        <button class="tab" data-tab="questionnaire-results" data-mode="research">Questionnaire Results</button>
-        <button class="tab" data-tab="stakeholders" data-mode="research">Stakeholder Factor Input</button>
-        <button class="tab" data-tab="survey-results" data-mode="research">Pilot Survey Results</button>
-        <button class="tab" data-tab="weighted" data-mode="research">Model Weights</button>
-        <button class="tab" data-tab="map" data-mode="decision">Suitability Map</button>
-        <button class="tab" data-tab="comparison" data-mode="decision">Building Comparison</button>
-        <button class="tab" data-tab="scoring" data-mode="decision">Score Breakdown</button>
-        <button class="tab" data-tab="scenarios" data-mode="decision">Policy Scenario Analysis</button>
-      </nav>
-
       <section id="overview" class="tab-panel">
         <div class="overview-topline">
           <article id="executiveInsight" class="panel insight-card"></article>
