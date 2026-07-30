@@ -43,7 +43,8 @@ input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); 
 .term-tip { border-bottom: 1px dotted var(--teal); color: #0f766e; cursor: help; font-weight: 800; }
 .term-tip:focus { outline: 2px solid #99f6e4; outline-offset: 2px; border-radius: 3px; }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.access-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.site-footer { max-width: 1640px; margin: 0 auto; padding: 0 20px 24px; }
+.access-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 4px; }
 .access-link { border: 0; padding: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 750; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .access-link:hover { color: var(--teal); }
 .access-state-message { color: var(--muted); font-size: 12px; font-weight: 750; }
