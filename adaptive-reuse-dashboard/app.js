@@ -2924,32 +2924,56 @@ async function confirmSurveySubmissionHandler() {
     confirmButton.disabled = true;
     confirmButton.textContent = 'Saving...';
   }
+  let submissionSaved = false;
   try {
-    await saveSurveySubmission(surveySubmissionPayload());
+    const savedSubmission = await saveSurveySubmission(surveySubmissionPayload());
+    submissionSaved = true;
     state.surveySubmitted = true;
     state.surveyResultsUnlocked = true;
     state.surveyReviewOpen = false;
-    state.weights = finalResearchWeights();
-    state.researchWeights = state.weights.slice();
-    updateSurveyResultAccess();
-    renderSurveyResults();
-    renderSurveyCriteria();
+    try {
+      if (teamAccessUnlocked()) {
+        state.weights = finalResearchWeights();
+        state.researchWeights = state.weights.slice();
+        renderSurveyResults();
+      }
+      updateSurveyResultAccess();
+      renderSurveyCriteria();
+    } catch (renderError) {
+      console.error('Questionnaire saved, but the confirmation screen could not be rendered', renderError);
+    }
+    const successStatus = document.getElementById('surveySubmitStatus') || status;
+    if (successStatus) {
+      successStatus.className = 'survey-submit-status submitted';
+      successStatus.innerHTML = '<strong>Your questionnaire and consent record have been submitted successfully.</strong>';
+    }
+    console.info('Questionnaire submission saved', savedSubmission?.responseReference || state.replySlip.responseReference);
   } catch (error) {
-    console.error('Survey submission failed', error.details || error);
-    state.surveySubmitted = false;
-    state.databaseStatus = 'Questionnaire and consent record could not be saved.';
-    if (status) {
-      status.className = 'survey-submit-status has-error';
-      status.innerHTML = '<strong>Your questionnaire and consent record could not be saved. Please try again.</strong>';
+    if (submissionSaved) {
+      console.error('Questionnaire saved, but the completion state could not be updated', error);
+      state.surveySubmitted = true;
+      const successStatus = document.getElementById('surveySubmitStatus') || status;
+      if (successStatus) {
+        successStatus.className = 'survey-submit-status submitted';
+        successStatus.innerHTML = '<strong>Your questionnaire and consent record have been submitted successfully.</strong>';
+      }
+    } else {
+      console.error('Survey submission failed', error.details || error);
+      state.surveySubmitted = false;
+      state.databaseStatus = 'Questionnaire and consent record could not be saved.';
+      if (status) {
+        status.className = 'survey-submit-status has-error';
+        status.innerHTML = '<strong>Your questionnaire and consent record could not be saved. Please try again.</strong>';
+      }
     }
   } finally {
     if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.textContent = 'Submit survey';
+      submitButton.disabled = submissionSaved;
+      submitButton.textContent = submissionSaved ? 'Submitted' : 'Submit survey';
     }
     if (confirmButton) {
-      confirmButton.disabled = false;
-      confirmButton.textContent = 'Confirm submission';
+      confirmButton.disabled = submissionSaved;
+      confirmButton.textContent = submissionSaved ? 'Submitted' : 'Confirm submission';
     }
   }
 }
