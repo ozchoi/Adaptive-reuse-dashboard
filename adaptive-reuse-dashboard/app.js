@@ -447,6 +447,19 @@ async function ensureAnonymousSupabaseSession() {
   if (error || !data.session?.access_token) throw error || new Error('Anonymous authentication did not return a session.');
   return data.session.access_token;
 }
+async function withRequestTimeout(promise, timeoutMs, message) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+      })
+    ]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 class SupabaseRequestError extends Error {
   constructor(message, details = {}, status = null) {
     super(message);
@@ -484,37 +497,62 @@ async function submitQuestionnaireWithConsent(questionnaireResponse) {
   if (!supabaseReady()) throw new Error('Supabase is not configured.');
   const signatureDataUrl = signatureCanvasDataUrl();
   if (!signatureDataUrl) throw new Error('A signature is required before the consent record can be saved.');
-  const accessToken = await ensureAnonymousSupabaseSession();
+  const accessToken = await withRequestTimeout(
+    ensureAnonymousSupabaseSession(),
+    15000,
+    'Participant authentication timed out.'
+  );
   const slip = state.replySlip;
   const endpoint = String(supabaseConfig.url).replace(/\/$/, '') + '/functions/v1/submit-questionnaire-with-consent';
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { apikey: supabaseConfig.anonKey, Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questionnaireResponse,
-      consentRecord: {
-        responseReference: questionnaireResponse.responseReference,
-        participantName: String(slip.participantName || '').trim(),
-        consentToParticipate: true,
-        signatureDataUrl,
-        signatureConfirmed: true,
-        participantLocalDate: slip.participantLocalDate,
-        stakeholderMeetingParticipant: slip.stakeholderMeetingParticipant === 'yes',
-        contactEmail: slip.stakeholderMeetingParticipant === 'yes' ? normaliseContactEmail(slip.contactEmail) : null,
-        audioRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.audioRecordingConsent === 'agreed' : null,
-        videoRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.videoRecordingConsent === 'agreed' : null,
-        photographyConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.photographyConsent === 'agreed' : null,
-        confidentialityUndertaking: slip.stakeholderMeetingParticipant === 'yes' ? slip.confidentialityUndertaking === 'yes' : null,
-        consentFormVersion: CONSENT_CONFIG.consentFormVersion,
-        replySlipVersion: CONSENT_CONFIG.replySlipVersion
-      }
-    })
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(body || 'Secure consent submission failed.');
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { apikey: supabaseConfig.anonKey, Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        questionnaireResponse,
+        consentRecord: {
+          responseReference: questionnaireResponse.responseReference,
+          participantName: String(slip.participantName || '').trim(),
+          consentToParticipate: true,
+          signatureDataUrl,
+          signatureConfirmed: true,
+          participantLocalDate: slip.participantLocalDate,
+          stakeholderMeetingParticipant: slip.stakeholderMeetingParticipant === 'yes',
+          contactEmail: slip.stakeholderMeetingParticipant === 'yes' ? normaliseContactEmail(slip.contactEmail) : null,
+          audioRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.audioRecordingConsent === 'agreed' : null,
+          videoRecordingConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.videoRecordingConsent === 'agreed' : null,
+          photographyConsent: slip.stakeholderMeetingParticipant === 'yes' ? slip.photographyConsent === 'agreed' : null,
+          confidentialityUndertaking: slip.stakeholderMeetingParticipant === 'yes' ? slip.confidentialityUndertaking === 'yes' : null,
+          consentFormVersion: CONSENT_CONFIG.consentFormVersion,
+          replySlipVersion: CONSENT_CONFIG.replySlipVersion
+        }
+      })
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('Secure submission timed out.');
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-  return response.json();
+  const text = await response.text();
+  let result = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch (error) {
+    result = { message: 'Secure consent submission returned an invalid response.' };
+  }
+  if (!response.ok || result.success !== true) {
+    throw new SupabaseRequestError(
+      result.message || 'Secure consent submission failed.',
+      result,
+      response.status
+    );
+  }
+  return result;
 }
 function stakeholderGroupKey(value) {
   const clean = String(value || '').trim();
@@ -2899,9 +2937,11 @@ async function confirmSurveySubmissionHandler() {
   } catch (error) {
     console.error('Survey submission failed', error.details || error);
     state.surveySubmitted = false;
-    state.databaseStatus = 'Survey could not be saved to Supabase. Check the browser console, database policies and row-level security settings.';
-    updateSurveySummary();
-    if (status) status.insertAdjacentHTML('beforeend', '<span>Submission could not be saved. Please try again or contact the project team.</span>');
+    state.databaseStatus = 'Questionnaire and consent record could not be saved.';
+    if (status) {
+      status.className = 'survey-submit-status has-error';
+      status.innerHTML = '<strong>Your questionnaire and consent record could not be saved. Please try again.</strong>';
+    }
   } finally {
     if (submitButton) {
       submitButton.disabled = false;

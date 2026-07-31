@@ -1,8 +1,11 @@
--- Run in the Supabase SQL editor before deploying the Reply Slip endpoint.
--- This table holds identifiable consent data. Keep it out of public analytics.
+-- Identifiable consent data stays separate from questionnaire analytics.
+-- This migration is idempotent and preserves all existing questionnaire rows.
 
 alter table public.survey_submissions
-  add column if not exists response_reference uuid unique;
+  add column if not exists response_reference uuid;
+
+create unique index if not exists survey_submissions_response_reference_key
+  on public.survey_submissions (response_reference);
 
 create table if not exists public.consent_records (
   id uuid primary key default gen_random_uuid(),
@@ -30,5 +33,25 @@ revoke all on public.consent_records from anon, authenticated;
 alter table public.consent_records
   add column if not exists contact_email text;
 
--- Create a private bucket in Storage Dashboard named `consent-signatures`.
--- Do not add public read policies. The Edge Function uses the server-side key.
+insert into storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+)
+values (
+  'consent-signatures',
+  'consent-signatures',
+  false,
+  2097152,
+  array['image/png']::text[]
+)
+on conflict (id) do update
+set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+comment on table public.consent_records is
+  'Restricted participant consent records linked to anonymous questionnaire responses by UUID.';
