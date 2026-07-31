@@ -66,6 +66,8 @@ input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); 
 .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 10px; background: rgba(255,255,255,0.96); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); }
 .tab { flex: 1 1 190px; min-height: 44px; padding: 10px 14px; white-space: normal; line-height: 1.2; }
 .tab.active { background: var(--ink); color: #fff; border-color: var(--ink); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16); }
+.questionnaire-cover { height: clamp(180px, 20vw, 280px); margin: 0 0 16px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.questionnaire-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 body.participant-view .layout { grid-template-columns: minmax(0, 1fr); max-width: 1380px; }
