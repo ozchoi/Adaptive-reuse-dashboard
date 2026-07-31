@@ -175,6 +175,15 @@ const projectInvolvementOptions = [
   'Yes, indirectly',
   'Yes, directly'
 ];
+const participantBasedOptions = [
+  'Hong Kong',
+  'Other Asian countries',
+  'Oceania',
+  'Europe',
+  'North America',
+  'South America',
+  'Africa'
+];
 const outcomeLikelihoodScale = [
   { value: 1, label: 'Not likely' },
   { value: 2, label: 'Slightly likely' },
@@ -317,7 +326,7 @@ function writeStoredTeamAccess(unlocked) {
 let state = { scenario: 'balanced', modelMode: 'survey', weights: researchDimensions.map(() => 1), researchWeights: researchDimensions.map(() => 1), selected: buildings[0].id, compare: [buildings[6].id, buildings[11].id], sort: { key: 'score', dir: 'desc' }, filters: {...defaultFilters}, mapLayers: {...defaultMapLayers}, stakeholderFactors: [
   { factor_name: 'Workshop validation confidence', suggested_by: 'Pilot workshop', stakeholder_group: 'Professional / consultant', related_dimension: 'feasibility', comment: 'Record whether workshop participants agree with model output for each site.', include_in_final_model: true },
   { factor_name: 'Tenant displacement management', suggested_by: 'Community panel', stakeholder_group: 'NGO / community organisation', related_dimension: 'safety', comment: 'Flag social and health risks from relocating existing small businesses.', include_in_final_model: false }
-], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', replySlip: { participantName: '', consentToParticipate: '', signatureStrokes: [], signatureConfirmed: false, participantLocalDate: new Date().toISOString().slice(0, 10), stakeholderMeetingParticipant: '', contactEmail: '', audioRecordingConsent: '', videoRecordingConsent: '', photographyConsent: '', confidentialityUndertaking: '' }, replySlipValidation: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
+], surveyRatings: {}, surveySelectedFactorIds: [], surveyFactorRanking: [], expandedSurveyFactorIds: [], surveyTopFactors: ['', '', ''], rankingAdjustment: null, rankingAdjustmentValue: '', rankingAdjustmentError: '', selectedStrategy: '', preferredReuseOutcomes: [], preferredReuseOutcomeRatings: {}, preferredOutcomeRatings: {}, otherOutcomeText: '', outcomeResetNotice: '', consentAccepted: false, consentValidationMessage: '', replySlip: { participantName: '', consentToParticipate: '', signatureStrokes: [], signatureConfirmed: false, participantLocalDate: new Date().toISOString().slice(0, 10), stakeholderMeetingParticipant: '', contactEmail: '', audioRecordingConsent: '', videoRecordingConsent: '', photographyConsent: '', confidentialityUndertaking: '' }, replySlipValidation: {}, surveyReviewOpen: false, surveySubmitted: false, surveyResultsUnlocked: false, participantGroup: '', participantBased: '', statutoryBodyType: '', industrialOwnershipType: '', adaptiveReuseKnowledge: '', projectInvolvement: '', projectLocation: '', surveyResultGroup: 'All', questionnaireResultFilters: { stakeholderGroup: 'All', projectInvolvement: 'All', projectLocation: 'All', dateFrom: '', dateTo: '', search: '' }, questionnaireResultDetailId: null, questionnaireRemoveId: null, questionnaireRemoving: false, questionnaireResultsLoading: false, questionnaireResultsError: '', questionnaireResultsLastUpdated: null, questionnaireResultsStatusMessage: '', baselineFilters: {...defaultBaselineFilters}, stakeholderGroupWeights: { government: 9, statutoryBody: 9, propertyManagement: 8, financial: 8, academics: 9, professional: 9, ngoCommunity: 8, developerInvestor: 8, buildingOwner: 8, tenantOccupier: 8, generalPublic: 8, other: 8 }, surveySubmissions: [], surveySubmissionsLoaded: false, databaseStatus: 'Using local pilot data until Supabase is configured.', viewMode: 'research', teamAccessUnlocked: storedTeamAccessUnlocked() };
 state.projectDetails = '';
 let suitabilityMap = null;
 let mapLayerGroups = null;
@@ -645,6 +654,7 @@ function normaliseSurveySubmission(row = {}) {
     stakeholderGroupKey: row.stakeholder_group_key || row.stakeholderGroupKey || null,
     statutoryBodyType: row.statutory_body_type || row.statutoryBodyType || null,
     industrialOwnershipType: row.industrial_ownership_type || row.industrialOwnershipType || null,
+    participantBased: row.participant_based || row.participantBased || null,
     adaptiveReuseKnowledge: row.adaptive_reuse_knowledge || row.adaptiveReuseKnowledge || null,
     projectInvolvement: row.project_involvement || row.projectInvolvement || null,
     projectLocation: row.project_location || row.projectLocation || null,
@@ -668,6 +678,7 @@ function normaliseSurveySubmission(row = {}) {
   const stakeholderKey = base.stakeholderGroupKey || base.stakeholder_group_key || row.stakeholder_group_key || (stakeholderGroup ? stakeholderGroupKey(stakeholderGroup) : null);
   const statutoryBodyType = base.statutoryBodyType || base.statutory_body_type || row.statutory_body_type || row.statutoryBodyType || null;
   const industrialOwnershipType = base.industrialOwnershipType || base.industrial_ownership_type || row.industrial_ownership_type || row.industrialOwnershipType || null;
+  const participantBased = base.participantBased || base.participant_based || row.participant_based || row.participantBased || null;
   const adaptiveReuseKnowledge = base.adaptiveReuseKnowledge || base.adaptive_reuse_knowledge || row.adaptive_reuse_knowledge || row.adaptiveReuseKnowledge || null;
   const projectInvolvement = base.projectInvolvement || base.project_involvement || row.project_involvement || row.projectInvolvement || null;
   const projectLocation = base.projectLocation || base.project_location || row.project_location || row.projectLocation || null;
@@ -712,6 +723,8 @@ function normaliseSurveySubmission(row = {}) {
     statutory_body_type: statutoryBodyType,
     industrialOwnershipType,
     industrial_ownership_type: industrialOwnershipType,
+    participantBased,
+    participant_based: participantBased,
     adaptiveReuseKnowledge,
     adaptive_reuse_knowledge: adaptiveReuseKnowledge,
     projectInvolvement,
@@ -896,6 +909,7 @@ function surveySubmissionPayload() {
     stakeholderGroupKey: stakeholderGroupKey(state.participantGroup),
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
     industrialOwnershipType: state.industrialOwnershipType || null,
+    participantBased: state.participantBased || null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
     projectInvolvement: state.projectInvolvement || null,
     projectDetails: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null
@@ -905,6 +919,7 @@ function surveySubmissionPayload() {
     stakeholder_group_key: stakeholderGroupKey(state.participantGroup),
     statutory_body_type: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
     industrial_ownership_type: state.industrialOwnershipType || null,
+    participant_based: state.participantBased || null,
     adaptive_reuse_knowledge: state.adaptiveReuseKnowledge || null,
     project_involvement: state.projectInvolvement || null,
     project_details: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
@@ -939,6 +954,7 @@ function surveySubmissionPayload() {
     informedConsentFormUrl: INFORMED_CONSENT_FORM_URL,
     stakeholderGroup: state.participantGroup,
     statutoryBodyType: state.participantGroup === 'Statutory body' ? state.statutoryBodyType || null : null,
+    participantBased: state.participantBased || null,
     adaptiveReuseKnowledge: state.adaptiveReuseKnowledge || null,
     projectInvolvement: state.projectInvolvement || null,
     projectDetails: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
@@ -1762,7 +1778,7 @@ function openQuestionnaireSubmissionDetail(id) {
   const projectDetailRows = '<div><dt>Project name(s) and country/city</dt><dd>'+h(notSpecified(projectDetails))+'</dd></div>' + (legacyProjectLocation ? '<div><dt>Legacy project location</dt><dd>'+h(legacyProjectLocation)+'</dd></div>' : '');
   detail.hidden = false;
   detail.setAttribute('aria-hidden', 'false');
-  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div>'+projectDetailRows+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeLikelihoodLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) >= 2 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
+  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Based in</dt><dd>'+h(notSpecified(submission.participantBased || submission.participant_based))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div>'+projectDetailRows+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeLikelihoodLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) >= 2 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
   detail.querySelectorAll('[data-close-questionnaire-detail]').forEach(button => button.onclick = closeQuestionnaireSubmissionDetail);
 }
 function closeQuestionnaireSubmissionDetail() {
@@ -1817,7 +1833,7 @@ function exportQuestionnaireResultsCsv() {
   const submissions = questionnaireFilteredSubmissions();
   const outcomeHeaders = reuseOutcomeOptions.map(option => 'outcome_' + option.id);
   const scoreHeaders = criticalFactors.map(factor => 'importance_score_' + factor.id);
-  const headers = ['submission_id','submitted_at','stakeholder_group','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_details','project_location','selected_strategy','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
+  const headers = ['submission_id','submitted_at','stakeholder_group','participant_based','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_details','project_location','selected_strategy','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
   const rows = submissions.map((submission, index) => {
     const scores = normalizedFactorImportanceScores(submission);
     const outcomes = normalizedOutcomeRatings(submission, outcomeOptionsForSubmission(submission));
@@ -1826,6 +1842,7 @@ function exportQuestionnaireResultsCsv() {
       submissionDisplayId(submission, index),
       submission.submittedAt || submission.submitted_at || submission.created_at || '',
       stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group),
+      submission.participantBased || submission.participant_based || '',
       submission.statutoryBodyType || submission.statutory_body_type || '',
       submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge || '',
       submission.projectInvolvement || submission.project_involvement || '',
@@ -2470,7 +2487,7 @@ function renderStakeholderBackgroundQuestions() {
   const projectDetailsQuestion = shouldAskProjectDetails()
     ? '<label>Please provide the project name(s) and country/city<span class="field-helper">Please enter the project name(s) and their country or city.</span><textarea id="projectDetails" rows="3" placeholder="ABC Industrial Building Conversion, Hong Kong">'+h(state.projectDetails || '')+'</textarea></label>'
     : '';
-  return statutoryQuestion + '<label>Do you have knowledge or experience related to adaptive reuse?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
+  return statutoryQuestion + '<label>Where are you based?<select id="participantBased"><option value="">Select answer</option>'+participantBasedOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + '<label>Do you have knowledge or experience related to adaptive reuse?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
     '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectDetailsQuestion;
 }
 function renderOutcomeLikelihoodScale() {
@@ -2528,7 +2545,7 @@ function renderSurveyReviewPanel(selected) {
   const meetingReview = slip.stakeholderMeetingParticipant === 'yes' ? '<div><dt>Audio-recording consent</dt><dd>'+h(slip.audioRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Video-recording consent</dt><dd>'+h(slip.videoRecordingConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Photography consent</dt><dd>'+h(slip.photographyConsent === 'agreed' ? 'Agreed' : 'Not agreed')+'</dd></div><div><dt>Confidentiality undertaking</dt><dd>'+h(slip.confidentialityUndertaking === 'yes' ? 'Yes' : 'No')+'</dd></div>' : '';
   const contactEmailReview = slip.stakeholderMeetingParticipant === 'yes' ? '<div><dt>Contact email</dt><dd>'+h(normaliseContactEmail(slip.contactEmail))+'</dd></div>' : '';
   const replySlipReview = '<h4>Reply slip</h4><dl><div><dt>Participant name</dt><dd>'+h(slip.participantName.trim())+'</dd></div><div><dt>Consent to participate</dt><dd>Agreed</dd></div><div><dt>Electronic signature</dt><dd>Provided</dd></div><div><dt>Date</dt><dd>'+h(slip.participantLocalDate)+'</dd></div><div><dt>Electronic-signature confirmation</dt><dd>Confirmed</dd></div><div><dt>Stakeholder meeting / interview / forum participation</dt><dd>'+h(slip.stakeholderMeetingParticipant === 'yes' ? 'Yes' : 'No')+'</dd></div>'+contactEmailReview+meetingReview+'</dl>';
-  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><h4>Participant’s profile</h4><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Knowledge or experience</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectDetailsReview+'</dl><h4>Preferred development strategy</h4><dl><div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div></dl><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul><h4>Concerns</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol>'+replySlipReview+'<p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
+  return '<div id="surveyReviewPanel" class="survey-review-panel"><h3>Response summary before confirmation</h3><p class="review-intro">Please check your answers below before final submission.</p><h4>Participant’s profile</h4><dl><div><dt>Stakeholder group</dt><dd>'+h(state.participantGroup || 'Not provided')+'</dd></div>'+statutoryReview+ownershipReview+'<div><dt>Based in</dt><dd>'+h(state.participantBased || 'Not provided')+'</dd></div><div><dt>Knowledge or experience</dt><dd>'+h(state.adaptiveReuseKnowledge || 'Not provided')+'</dd></div><div><dt>Project involvement</dt><dd>'+h(state.projectInvolvement || 'Not provided')+'</dd></div>'+projectDetailsReview+'</dl><h4>Preferred development strategy</h4><dl><div><dt>Selected strategy</dt><dd>'+h(strategyLabel(state.selectedStrategy))+'</dd></div></dl><ul class="review-ratings">'+outcomes+otherOutcomeReview+'</ul><h4>Concerns</h4><p class="map-note">Ranking is based on the importance scores provided using the sliders.</p><ol class="review-ranking review-ratings">'+ranked+'</ol>'+replySlipReview+'<p class="review-consent-note">Please review your response before final submission. By selecting Confirm submission, you confirm that you continue to consent to participate in this questionnaire.</p><div class="review-actions"><button id="editSurveyResponse" class="ghost-button" type="button">Edit response</button><button id="confirmSurveySubmission" class="primary-button" type="button">Confirm submission</button></div></div>';
 }
 function renderSurveyCriteria() {
   cleanQuestionnaireSelection();
@@ -2556,6 +2573,15 @@ function renderSurveyCriteria() {
     setSurveyInProgress();
     renderSurveyCriteria();
   };
+  const participantBased = document.getElementById('participantBased');
+  if (participantBased) {
+    participantBased.value = state.participantBased;
+    participantBased.onchange = e => {
+      state.participantBased = e.target.value;
+      setSurveyInProgress();
+      updateSurveySummary();
+    };
+  }
   const industrialOwnershipType = document.getElementById('industrialOwnershipType');
   if (industrialOwnershipType) {
     industrialOwnershipType.value = state.industrialOwnershipType;
@@ -2749,7 +2775,7 @@ function updateSurveySummary() {
   cleanQuestionnaireSelection();
   const selected = selectedQuestionnaireFactors();
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
-  const missingBackground = !!state.participantGroup && (!state.adaptiveReuseKnowledge || !state.projectInvolvement);
+  const missingBackground = !!state.participantGroup && (!state.participantBased || !state.adaptiveReuseKnowledge || !state.projectInvolvement);
   const incorrectFactorCount = selected.length !== 5;
   const missingImportanceScores = selected.some(factor => !Number.isFinite(Number(state.surveyRatings[factor.id])));
   const missingStrategy = !state.selectedStrategy;
@@ -2812,7 +2838,7 @@ function submitSurvey() {
     return;
   }
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
-  const missingBackground = !!state.participantGroup && (!state.adaptiveReuseKnowledge || !state.projectInvolvement);
+  const missingBackground = !!state.participantGroup && (!state.participantBased || !state.adaptiveReuseKnowledge || !state.projectInvolvement);
   const missingStrategy = !state.selectedStrategy;
   const missingOutcomeLikelihoods = !outcomeRatingsComplete();
   const missingOtherOutcomeText = !otherOutcomeComplete();
@@ -2840,7 +2866,7 @@ async function confirmSurveySubmissionHandler() {
     return;
   }
   cleanQuestionnaireSelection();
-  const backgroundComplete = !!state.participantGroup && !!state.adaptiveReuseKnowledge && !!state.projectInvolvement;
+  const backgroundComplete = !!state.participantGroup && !!state.participantBased && !!state.adaptiveReuseKnowledge && !!state.projectInvolvement;
   if (!backgroundComplete || selectedQuestionnaireFactors().length !== 5 || !state.selectedStrategy || !outcomeRatingsComplete() || !otherOutcomeComplete()) {
     state.surveyReviewOpen = false;
     renderSurveyCriteria();
