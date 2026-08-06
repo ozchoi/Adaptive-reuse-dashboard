@@ -184,11 +184,12 @@ const participantBasedOptions = [
   'South America',
   'Africa'
 ];
-const outcomeLikelihoodScale = [
-  { value: 1, label: 'Not likely' },
-  { value: 2, label: 'Slightly likely' },
-  { value: 3, label: 'Likely' },
-  { value: 4, label: 'Very likely' }
+const OUTCOME_RATING_METHOD = 'desirability_4_point_selected_outcomes';
+const outcomeDesirabilityScale = [
+  { value: 1, label: 'Slightly desirable' },
+  { value: 2, label: 'Moderately desirable' },
+  { value: 3, label: 'Very desirable' },
+  { value: 4, label: 'Extremely desirable' }
 ];
 const outcomeStrategyOptions = [
   { id: 'adaptiveReuse', label: 'Adaptive reuse' },
@@ -370,8 +371,10 @@ function outcomeOptionLabel(value) {
   const match = reuseOutcomeOptions.find(option => option.id === clean || option.label === clean);
   return match ? match.label : clean;
 }
-function outcomeLikelihoodLabel(value) {
-  const match = outcomeLikelihoodScale.find(item => item.value === Number(value));
+function outcomeDesirabilityLabel(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'Not selected';
+  const match = outcomeDesirabilityScale.find(item => item.value === numeric);
   return match ? match.label : 'Not rated';
 }
 function strategyLabel(value) {
@@ -382,10 +385,14 @@ function currentOutcomeOptions(strategy = state.selectedStrategy) {
   return outcomeOptionsByStrategy[strategy] || [];
 }
 function effectiveOutcomeRatings(ratings = state.preferredOutcomeRatings, strategy = state.selectedStrategy, options = currentOutcomeOptions(strategy)) {
+  const selectedIds = new Set(Object.keys(ratings || {}));
   return Object.fromEntries(options.map(option => {
     const value = Number(ratings[option.id]);
-    return [option.id, Number.isFinite(value) && value >= 2 ? Math.max(2, Math.min(4, Math.round(value))) : 1];
+    return [option.id, selectedIds.has(option.id) && Number.isFinite(value) ? Math.max(1, Math.min(4, Math.round(value))) : 0];
   }));
+}
+function outcomeRatingMethodForSubmission(submission = {}) {
+  return submission.outcomeRatingMethod || submission.outcome_rating_method || '';
 }
 function selectedStrategyForSubmission(submission = {}) {
   const value = submission.selectedStrategy || submission.selected_strategy || submission.strategy || '';
@@ -400,17 +407,34 @@ function outcomeOptionsForSubmission(submission = {}) {
 }
 function normalizedOutcomeRatings(submission = {}, options = outcomeOptionsForSubmission(submission)) {
   const source = submission.preferredOutcomeRatings || submission.preferred_outcome_ratings || submission.preferred_reuse_redevelopment_outcomes || submission.preferredReuseRedevelopmentOutcomes || submission.preferredReuseOutcomeRatings || {};
-  const ratings = {};
+  const usesDesirabilityScale = outcomeRatingMethodForSubmission(submission) === OUTCOME_RATING_METHOD;
+  const validIds = new Set(options.map(option => option.id));
+  const explicitSelected = normalizeArrayValue(submission.selectedReuseRedevelopmentOutcomes || submission.selected_reuse_redevelopment_outcomes)
+    .map(outcomeOptionId)
+    .filter(id => validIds.has(id));
+  const selectedIds = new Set(explicitSelected.length ? explicitSelected : Object.entries(source || {})
+    .filter(([, value]) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) && (usesDesirabilityScale ? numeric >= 1 : numeric >= 2);
+    })
+    .map(([key]) => outcomeOptionId(key))
+    .filter(id => validIds.has(id)));
+  const ratings = Object.fromEntries(options.map(option => [option.id, 0]));
   Object.entries(source || {}).forEach(([key, value]) => {
+    const id = outcomeOptionId(key);
     const numeric = Number(value);
-    if (Number.isFinite(numeric)) ratings[outcomeOptionId(key)] = Math.max(1, Math.min(4, Math.round(numeric)));
+    if (!selectedIds.has(id) || !Number.isFinite(numeric)) return;
+    // Legacy responses used 1 for unticked and 2-4 for the previous three-level scale.
+    ratings[id] = usesDesirabilityScale
+      ? Math.max(1, Math.min(4, Math.round(numeric)))
+      : Math.max(1, Math.min(3, Math.round(numeric) - 1));
   });
   const legacy = submission.preferred_reuse_outcomes || submission.preferredReuseOutcomes || [];
   if (Array.isArray(legacy)) legacy.forEach(label => {
     const id = outcomeOptionId(label);
-    if (!ratings[id]) ratings[id] = 3;
+    if (validIds.has(id) && !ratings[id]) ratings[id] = 2;
   });
-  return effectiveOutcomeRatings(ratings, selectedStrategyForSubmission(submission), options);
+  return ratings;
 }
 function outcomeRatingsComplete() {
   if (!state.selectedStrategy) return false;
@@ -418,11 +442,11 @@ function outcomeRatingsComplete() {
   const selectedIds = Object.keys(state.preferredOutcomeRatings).filter(id => validIds.has(id));
   return selectedIds.length === 5 && selectedIds.every(id => {
     const value = Number(state.preferredOutcomeRatings[id]);
-    return value >= 2 && value <= 4;
+    return value >= 1 && value <= 4;
   });
 }
 function otherOutcomeComplete() {
-  return Number(state.preferredOutcomeRatings.others) >= 2 ? !!String(state.otherOutcomeText || '').trim() : true;
+  return Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, 'others') ? !!String(state.otherOutcomeText || '').trim() : true;
 }
 function outcomeRatingsForSubmission() {
   return effectiveOutcomeRatings();
@@ -431,7 +455,7 @@ function outcomeRatingsAsLabels(ratings = state.preferredOutcomeRatings, strateg
   const options = currentOutcomeOptions(strategy);
   return options
     .filter(option => Object.prototype.hasOwnProperty.call(ratings, option.id))
-    .map(option => [option.label, outcomeLikelihoodLabel(ratings[option.id])]);
+    .map(option => [option.label, outcomeDesirabilityLabel(ratings[option.id])]);
 }
 const supabaseConfig = window.ADAPTIVE_REUSE_SUPABASE || {};
 let supabaseAuthClient = null;
@@ -705,6 +729,7 @@ function normaliseSurveySubmission(row = {}) {
     factorRatings: row.factor_ratings || row.factorRatings || row.ratings || {},
     preferredReuseRedevelopmentOutcomes: row.preferred_reuse_redevelopment_outcomes || row.preferredReuseRedevelopmentOutcomes || {},
     selectedReuseRedevelopmentOutcomes: row.selected_reuse_redevelopment_outcomes || row.selectedReuseRedevelopmentOutcomes || [],
+    outcomeRatingMethod: row.outcome_rating_method || row.outcomeRatingMethod || null,
     respondentProfile: row.respondent_profile || row.respondentProfile || {},
     submittedAt: row.submitted_at || row.submittedAt || null,
     ratings: row.ratings || row.factor_ratings || row.factorRatings || {},
@@ -738,6 +763,7 @@ function normaliseSurveySubmission(row = {}) {
   const preferredOutcomeRatings = normalizeObjectValue(base.preferredOutcomeRatings || base.preferred_outcome_ratings || row.preferred_outcome_ratings || row.preferredOutcomeRatings);
   const preferredReuseRedevelopmentOutcomes = normalizeObjectValue(base.preferredReuseRedevelopmentOutcomes || base.preferred_reuse_redevelopment_outcomes || row.preferred_reuse_redevelopment_outcomes || row.preferredReuseRedevelopmentOutcomes);
   const selectedReuseRedevelopmentOutcomes = normalizeArrayValue(base.selectedReuseRedevelopmentOutcomes || base.selected_reuse_redevelopment_outcomes || row.selected_reuse_redevelopment_outcomes || row.selectedReuseRedevelopmentOutcomes);
+  const outcomeRatingMethod = base.outcomeRatingMethod || base.outcome_rating_method || row.outcome_rating_method || row.outcomeRatingMethod || null;
   const otherOutcomeText = base.otherOutcomeText || base.other_outcome_text || row.other_outcome_text || row.otherOutcomeText || null;
   const submittedAt = base.submittedAt || base.submitted_at || row.submitted_at || row.submittedAt || row.created_at || base.createdAt || base.created_at || null;
   const createdAt = base.createdAt || base.created_at || row.created_at || null;
@@ -797,6 +823,8 @@ function normaliseSurveySubmission(row = {}) {
     preferred_reuse_redevelopment_outcomes: preferredReuseRedevelopmentOutcomes,
     selectedReuseRedevelopmentOutcomes,
     selected_reuse_redevelopment_outcomes: selectedReuseRedevelopmentOutcomes,
+    outcomeRatingMethod,
+    outcome_rating_method: outcomeRatingMethod,
     ratings: factorRatings,
     comments: base.comments || base.comment || row.comments || row.comment || '',
     consent: {
@@ -930,7 +958,7 @@ function surveySubmissionPayload() {
   const selected = selectedQuestionnaireFactors();
   const importanceScores = factorImportanceScores(selected);
   const outcomeRatings = outcomeRatingsForSubmission();
-  const selectedOutcomeIds = currentOutcomeOptions().filter(option => Number(state.preferredOutcomeRatings[option.id]) >= 2).map(option => option.id);
+  const selectedOutcomeIds = currentOutcomeOptions().filter(option => Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, option.id)).map(option => option.id);
   const topThree = factorRanking.slice(0, 3);
   const topFactorNames = topThree.map(id => (criticalFactors.find(factor => factor.id === id) || {}).factor_name).filter(Boolean);
   const submittedAt = new Date().toISOString();
@@ -963,7 +991,8 @@ function surveySubmissionPayload() {
     project_details: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
     selected_strategy: state.selectedStrategy,
     preferred_outcome_ratings: outcomeRatings,
-    other_outcome_text: Number(outcomeRatings.others) >= 2 ? String(state.otherOutcomeText || '').trim() : null,
+    outcome_rating_method: OUTCOME_RATING_METHOD,
+    other_outcome_text: selectedOutcomeIds.includes('others') ? String(state.otherOutcomeText || '').trim() : null,
     selected_factors: selectedFactors,
     factor_ranking: factorRanking,
     factor_importance_scores: importanceScores,
@@ -986,6 +1015,7 @@ function surveySubmissionPayload() {
     factorRatings: importanceScores,
     preferredReuseRedevelopmentOutcomes: outcomeRatings,
     selectedReuseRedevelopmentOutcomes: selectedOutcomeIds,
+    outcomeRatingMethod: OUTCOME_RATING_METHOD,
     consentAccepted: true,
     consentedAt,
     consentVersion: CONSENT_CONFIG.consentFormVersion,
@@ -998,14 +1028,14 @@ function surveySubmissionPayload() {
     projectDetails: shouldAskProjectDetails() ? String(state.projectDetails || '').trim() || null : null,
     selectedStrategy: state.selectedStrategy,
     preferredOutcomeRatings: outcomeRatings,
-    otherOutcomeText: Number(outcomeRatings.others) >= 2 ? String(state.otherOutcomeText || '').trim() : null,
+    otherOutcomeText: selectedOutcomeIds.includes('others') ? String(state.otherOutcomeText || '').trim() : null,
     respondentProfile,
     responseReference,
     submittedAt,
     ratings: importanceScores,
     top_factor_ids: topThree,
     top_factor_names: topFactorNames,
-    preferred_reuse_outcomes: currentOutcomeOptions().filter(option => Number(outcomeRatings[option.id]) >= 2).map(option => option.label)
+    preferred_reuse_outcomes: currentOutcomeOptions().filter(option => selectedOutcomeIds.includes(option.id)).map(option => option.label)
   };
 }
 function buildSupabaseSubmissionPayload(response) {
@@ -1468,19 +1498,22 @@ function surveyOutcomeSummaryRows(groupKey = state.surveyResultGroup) {
     const values = submissions
       .map(submission => normalizedOutcomeRatings(submission)[option.id])
       .filter(value => Number.isFinite(Number(value)));
-    const counts = outcomeLikelihoodScale.map(scale => values.filter(value => Number(value) === scale.value).length);
-    const maxCount = Math.max(0, ...counts);
-    const mostCommonIndex = counts.findIndex(count => count === maxCount);
+    const notSelectedCount = values.filter(value => Number(value) === 0).length;
+    const counts = outcomeDesirabilityScale.map(scale => values.filter(value => Number(value) === scale.value).length);
+    const responseCounts = [notSelectedCount, ...counts];
+    const responseLabels = ['Not selected', ...outcomeDesirabilityScale.map(scale => scale.label)];
+    const maxCount = Math.max(0, ...responseCounts);
+    const mostCommonIndex = responseCounts.findIndex(count => count === maxCount);
     const average = values.length ? mean(values.map(Number)) : null;
-    const distribution = counts.map(count => values.length ? Math.round(count / values.length * 100) + '%' : '0%');
-    const selectedCount = values.filter(value => Number(value) >= 2).length;
+    const distribution = responseCounts.map((count, index) => responseLabels[index] + ': ' + (values.length ? Math.round(count / values.length * 100) : 0) + '%');
+    const selectedCount = values.filter(value => Number(value) > 0).length;
     return {
       ...option,
       average,
       responseCount: values.length,
       selectedCount,
       selectedPercent: values.length ? Math.round(selectedCount / values.length * 100) : 0,
-      mostCommon: values.length ? outcomeLikelihoodScale[mostCommonIndex].label : 'Awaiting response',
+      mostCommon: values.length ? responseLabels[mostCommonIndex] : 'Awaiting response',
       distribution
     };
   });
@@ -1523,10 +1556,10 @@ function submissionTopOutcome(submission) {
   const options = outcomeOptionsForSubmission(submission);
   const ratings = normalizedOutcomeRatings(submission, options);
   const supported = options
-    .map(option => ({ option, value: Number(ratings[option.id]) || 1 }))
-    .filter(row => row.value >= 2)
+    .map(option => ({ option, value: Number(ratings[option.id]) || 0 }))
+    .filter(row => row.value > 0)
     .sort((a, b) => b.value - a.value || a.option.label.localeCompare(b.option.label));
-  return supported.length ? supported[0].option.label + ' (' + outcomeLikelihoodLabel(supported[0].value) + ')' : 'Not specified';
+  return supported.length ? supported[0].option.label + ' (' + outcomeDesirabilityLabel(supported[0].value) + ')' : 'Not specified';
 }
 function submissionProjectDetails(submission) {
   return submission.projectDetails || submission.project_details || null;
@@ -1563,7 +1596,7 @@ function questionnaireFilteredSubmissions() {
       submission.project_details,
       submission.comments,
       ...normalizedSelectedFactorIds(submission).map(factorLabel),
-      ...Object.entries(normalizedOutcomeRatings(submission)).filter(([, value]) => Number(value) >= 2).map(([id]) => outcomeOptionLabel(id))
+      ...Object.entries(normalizedOutcomeRatings(submission)).filter(([, value]) => Number(value) > 0).map(([id]) => outcomeOptionLabel(id))
     ].join(' ').toLowerCase();
     return haystack.includes(search);
   });
@@ -1601,18 +1634,20 @@ function questionnaireOutcomeSummary(submissions) {
     const strategySubmissions = submissions.filter(submission => selectedStrategyForSubmission(submission) === strategy.id);
     const total = strategySubmissions.length || 1;
     const rows = currentOutcomeOptions(strategy.id).map(option => {
-    const values = strategySubmissions.map(submission => Number(normalizedOutcomeRatings(submission, currentOutcomeOptions(strategy.id))[option.id]) || 1);
-    const counts = outcomeLikelihoodScale.map(scale => values.filter(value => value === scale.value).length);
-    const selectedCount = values.filter(value => value >= 2).length;
-    return {
-      ...option,
-      strategy: strategy.id,
-      strategyLabel: strategy.label,
-      average: values.length ? mean(values) : null,
-      selectedCount,
-      selectedPercent: Math.round(selectedCount / total * 100),
-      counts
-    };
+      const values = strategySubmissions.map(submission => Number(normalizedOutcomeRatings(submission, currentOutcomeOptions(strategy.id))[option.id] ?? 0));
+      const notSelectedCount = values.filter(value => value === 0).length;
+      const counts = outcomeDesirabilityScale.map(scale => values.filter(value => value === scale.value).length);
+      const selectedCount = values.filter(value => value > 0).length;
+      return {
+        ...option,
+        strategy: strategy.id,
+        strategyLabel: strategy.label,
+        average: values.length ? mean(values) : null,
+        selectedCount,
+        selectedPercent: Math.round(selectedCount / total * 100),
+        notSelectedCount,
+        counts
+      };
     }).sort((a, b) => (b.average || 0) - (a.average || 0) || b.selectedCount - a.selectedCount || a.label.localeCompare(b.label));
     return { strategy: strategy.id, label: strategy.label, total: strategySubmissions.length, rows };
   });
@@ -1620,10 +1655,11 @@ function questionnaireOutcomeSummary(submissions) {
   if (!legacySubmissions.length) return strategyGroups;
   const total = legacySubmissions.length || 1;
   const legacyRows = reuseOutcomeOptions.map(option => {
-    const values = legacySubmissions.map(submission => Number(normalizedOutcomeRatings(submission, reuseOutcomeOptions)[option.id]) || 1);
-    const counts = outcomeLikelihoodScale.map(scale => values.filter(value => value === scale.value).length);
-    const selectedCount = values.filter(value => value >= 2).length;
-    return { ...option, strategy: 'legacy', strategyLabel: 'Legacy combined outcomes', average: values.length ? mean(values) : null, selectedCount, selectedPercent: Math.round(selectedCount / total * 100), counts };
+    const values = legacySubmissions.map(submission => Number(normalizedOutcomeRatings(submission, reuseOutcomeOptions)[option.id] ?? 0));
+    const notSelectedCount = values.filter(value => value === 0).length;
+    const counts = outcomeDesirabilityScale.map(scale => values.filter(value => value === scale.value).length);
+    const selectedCount = values.filter(value => value > 0).length;
+    return { ...option, strategy: 'legacy', strategyLabel: 'Legacy combined outcomes', average: values.length ? mean(values) : null, selectedCount, selectedPercent: Math.round(selectedCount / total * 100), notSelectedCount, counts };
   }).sort((a, b) => (b.average || 0) - (a.average || 0) || b.selectedCount - a.selectedCount || a.label.localeCompare(b.label));
   return strategyGroups.concat({ strategy: 'legacy', label: 'Legacy combined outcomes', total: legacySubmissions.length, rows: legacyRows });
 }
@@ -1637,7 +1673,7 @@ function questionnaireSummary(submissions) {
     mostCommonStakeholder: mostCommonLabel(stakeholderRows),
     averageSelectedFactors: submissions.length ? mean(submissions.map(submission => normalizedSelectedFactorIds(submission).length)).toFixed(1) : '0.0',
     mostSelectedFactor: factorRows.find(row => row.selectedCount > 0)?.factor_name || 'Not specified',
-    mostSupportedOutcome: outcomeRows.flatMap(group => group.rows).find(row => row.selectedCount > 0)?.label || 'Not specified',
+    mostDesirableOutcome: outcomeRows.flatMap(group => group.rows).filter(row => row.selectedCount > 0).sort((a, b) => (b.average || 0) - (a.average || 0) || b.selectedCount - a.selectedCount || a.label.localeCompare(b.label))[0]?.label || 'Not specified',
     factorRows,
     outcomeRows,
     stakeholderRows,
@@ -1689,7 +1725,7 @@ function renderQuestionnaireResults() {
       status.textContent = 'Loading questionnaire results...';
       status.className = 'map-note results-message';
     }
-    kpiEl.innerHTML = ['Total submissions','Most common stakeholder group','Average selected factors','Most frequently selected factor','Most supported outcome'].map(label => '<div class="kpi"><span>'+h(label)+'</span><strong>...</strong></div>').join('');
+    kpiEl.innerHTML = ['Total submissions','Most common stakeholder group','Average selected factors','Most frequently selected factor','Most desirable outcome'].map(label => '<div class="kpi"><span>'+h(label)+'</span><strong>...</strong></div>').join('');
     renderQuestionnaireResultsPlaceholder('Loading questionnaire results...');
     return;
   }
@@ -1725,7 +1761,7 @@ function renderQuestionnaireResults() {
     ['Most common stakeholder group', summary.mostCommonStakeholder],
     ['Average selected factors', summary.averageSelectedFactors],
     ['Most frequently selected factor', summary.mostSelectedFactor],
-    ['Most supported outcome', summary.mostSupportedOutcome]
+    ['Most desirable outcome', summary.mostDesirableOutcome]
   ].map(([label, value]) => '<div class="kpi"><span>'+h(label)+'</span><strong>'+h(value)+'</strong></div>').join('');
   renderQuestionnaireResultFilters(filtered.length);
   const profile = document.getElementById('questionnaireProfileSummary');
@@ -1779,7 +1815,7 @@ function renderQuestionnaireFactorTables(rows, total) {
 function renderQuestionnaireOutcomeTable(rows, total) {
   const table = document.getElementById('questionnaireOutcomeSummary');
   if (!table) return;
-  table.innerHTML = rows.length ? '<thead><tr><th>Strategy / outcome</th><th>Average likelihood</th><th>Supported</th><th>Not likely</th><th>Slightly likely</th><th>Likely</th><th>Very likely</th></tr></thead><tbody>' + rows.map(group => '<tr class="section-row"><td colspan="7"><strong>'+h(group.label)+'</strong> <span>'+h(group.total)+' respondent'+(group.total === 1 ? '' : 's')+'</span></td></tr>' + group.rows.map(row => '<tr><td><strong>'+h(row.label)+'</strong></td><td>'+h(row.average === null ? 'Not specified' : row.average.toFixed(1) + '/4')+'</td><td>'+h(row.selectedCount)+' ('+h(row.selectedPercent)+'%)</td>'+row.counts.map(count => '<td>'+h(count)+' / '+h(group.total)+'</td>').join('')+'</tr>').join('')).join('') + '</tbody>' : '<tbody><tr><td><div class="empty-state">No outcome ratings available.</div></td></tr></tbody>';
+  table.innerHTML = rows.length ? '<thead><tr><th>Strategy / outcome</th><th>Average desirability score</th><th>Selected</th><th>Not selected</th><th>Slightly desirable</th><th>Moderately desirable</th><th>Very desirable</th><th>Extremely desirable</th></tr></thead><tbody>' + rows.map(group => '<tr class="section-row"><td colspan="8"><strong>'+h(group.label)+'</strong> <span>'+h(group.total)+' respondent'+(group.total === 1 ? '' : 's')+'</span></td></tr>' + group.rows.map(row => '<tr><td><strong>'+h(row.label)+'</strong></td><td>'+h(row.average === null ? 'Not specified' : row.average.toFixed(1) + '/4')+'</td><td>'+h(row.selectedCount)+' ('+h(row.selectedPercent)+'%)</td><td>'+h(row.notSelectedCount)+' / '+h(group.total)+'</td>'+row.counts.map(count => '<td>'+h(count)+' / '+h(group.total)+'</td>').join('')+'</tr>').join('')).join('') + '</tbody>' : '<tbody><tr><td><div class="empty-state">No outcome ratings available.</div></td></tr></tbody>';
 }
 function renderQuestionnaireSubmissionTable(submissions) {
   const meta = document.getElementById('questionnaireSubmissionMeta');
@@ -1790,7 +1826,7 @@ function renderQuestionnaireSubmissionTable(submissions) {
     table.innerHTML = '<tbody><tr><td><div class="empty-state">No questionnaire submissions match these filters.</div></td></tr></tbody>';
     return;
   }
-  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project details</th><th>Selected factors</th><th>Top-ranked factor</th><th>Top supported outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(submissionProjectSummary(submission))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><div class="row-actions"><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button>'+(teamAccessUnlocked() ? '<button class="ghost-button mini-button warning-button" data-questionnaire-remove="'+h(submissionDisplayId(submission, index))+'" type="button">Remove</button>' : '')+'</div></td></tr>').join('') + '</tbody>';
+  table.innerHTML = '<thead><tr><th>Submission time</th><th>Stakeholder group</th><th>Knowledge / experience</th><th>Project involvement</th><th>Project details</th><th>Selected factors</th><th>Top-ranked factor</th><th>Most desirable outcome</th><th>Details</th></tr></thead><tbody>' + submissions.map((submission, index) => '<tr><td>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</td><td>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</td><td>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</td><td>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</td><td>'+h(submissionProjectSummary(submission))+'</td><td>'+h(normalizedSelectedFactorIds(submission).length)+'</td><td>'+h(submissionTopFactor(submission))+'</td><td>'+h(submissionTopOutcome(submission))+'</td><td><div class="row-actions"><button class="ghost-button mini-button" data-questionnaire-detail="'+h(submissionDisplayId(submission, index))+'" type="button">View details</button>'+(teamAccessUnlocked() ? '<button class="ghost-button mini-button warning-button" data-questionnaire-remove="'+h(submissionDisplayId(submission, index))+'" type="button">Remove</button>' : '')+'</div></td></tr>').join('') + '</tbody>';
   document.querySelectorAll('[data-questionnaire-detail]').forEach(button => button.onclick = e => openQuestionnaireSubmissionDetail(e.currentTarget.dataset.questionnaireDetail));
   document.querySelectorAll('[data-questionnaire-remove]').forEach(button => button.onclick = e => openQuestionnaireRemoveModal(e.currentTarget.dataset.questionnaireRemove));
 }
@@ -1816,7 +1852,7 @@ function openQuestionnaireSubmissionDetail(id) {
   const projectDetailRows = '<div><dt>Project name(s) and country/city</dt><dd>'+h(notSpecified(projectDetails))+'</dd></div>' + (legacyProjectLocation ? '<div><dt>Legacy project location</dt><dd>'+h(legacyProjectLocation)+'</dd></div>' : '');
   detail.hidden = false;
   detail.setAttribute('aria-hidden', 'false');
-  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Based in</dt><dd>'+h(notSpecified(submission.participantBased || submission.participant_based))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div>'+projectDetailRows+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeLikelihoodLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) >= 2 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
+  detail.innerHTML = '<div class="submission-detail-backdrop" data-close-questionnaire-detail></div><article class="submission-detail-card" role="dialog" aria-modal="true" aria-labelledby="questionnaireDetailTitle"><div class="panel-heading"><h2 id="questionnaireDetailTitle">Questionnaire submission details</h2><button class="ghost-button mini-button" data-close-questionnaire-detail type="button">Close</button></div><dl class="detail-grid"><div><dt>Submission ID</dt><dd>'+h(notSpecified(submission.id))+'</dd></div><div><dt>Submitted at</dt><dd>'+h(formatSubmissionTime(submission.submittedAt || submission.submitted_at || submission.created_at))+'</dd></div><div><dt>Stakeholder group</dt><dd>'+h(stakeholderGroupDisplay(submission.stakeholderGroup || submission.stakeholder_group))+'</dd></div><div><dt>Based in</dt><dd>'+h(notSpecified(submission.participantBased || submission.participant_based))+'</dd></div><div><dt>Statutory body type</dt><dd>'+h(notSpecified(submission.statutoryBodyType || submission.statutory_body_type))+'</dd></div><div><dt>Knowledge / experience</dt><dd>'+h(notSpecified(submission.adaptiveReuseKnowledge || submission.adaptive_reuse_knowledge))+'</dd></div><div><dt>Project involvement</dt><dd>'+h(notSpecified(submission.projectInvolvement || submission.project_involvement))+'</dd></div>'+projectDetailRows+'<div><dt>Selected strategy</dt><dd>'+h(strategyLabel(strategy))+'</dd></div><div><dt>Consent to participate</dt><dd>'+h(consentAccepted ? 'Confirmed' : 'Not specified')+'</dd></div><div><dt>Consent date and time</dt><dd>'+h(formatSubmissionTime(consentedAt))+'</dd></div><div><dt>Consent version</dt><dd>'+h(notSpecified(consentVersion))+'</dd></div></dl><h3>Selected factors</h3><ul class="detail-list">'+(selected.length ? selected.map(id => '<li>'+h(factorLabel(id))+' <em>'+h(dimensionLabel(factorDimension(id)))+'</em></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Full ranking</h3><ol class="detail-list">'+(ranking.length ? ranking.map(id => '<li>'+h(factorLabel(id))+' <strong>'+h(importanceScores[id] ?? 'Not specified')+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ol><h3>Importance scores</h3><ul class="detail-list two-col">'+(Object.keys(importanceScores).length ? Object.entries(importanceScores).sort((a, b) => Number(b[1]) - Number(a[1])).map(([id, value]) => '<li><span>'+h(factorLabel(id))+'</span><strong>'+h(value)+' / 100</strong></li>').join('') : '<li>Not specified</li>')+'</ul><h3>Preferred outcomes</h3><ul class="detail-list two-col">'+outcomeOptions.map(option => '<li><span>'+h(option.label)+'</span><strong>'+h(outcomeDesirabilityLabel(outcomes[option.id]))+'</strong></li>').join('')+'</ul>'+(Number(outcomes.others) > 0 ? '<h3>Other outcome specified</h3><p>'+h(notSpecified(submission.otherOutcomeText || submission.other_outcome_text))+'</p>' : '')+'<h3>Comments / open text</h3><p>'+h(notSpecified(submission.comments))+'</p></article>';
   detail.querySelectorAll('[data-close-questionnaire-detail]').forEach(button => button.onclick = closeQuestionnaireSubmissionDetail);
 }
 function closeQuestionnaireSubmissionDetail() {
@@ -1869,9 +1905,9 @@ async function confirmQuestionnaireRemove(submission) {
 }
 function exportQuestionnaireResultsCsv() {
   const submissions = questionnaireFilteredSubmissions();
-  const outcomeHeaders = reuseOutcomeOptions.map(option => 'outcome_' + option.id);
+  const outcomeHeaders = reuseOutcomeOptions.map(option => 'outcome_desirability_' + option.id);
   const scoreHeaders = criticalFactors.map(factor => 'importance_score_' + factor.id);
-  const headers = ['submission_id','submitted_at','stakeholder_group','participant_based','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_details','project_location','selected_strategy','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
+  const headers = ['submission_id','submitted_at','stakeholder_group','participant_based','statutory_body_type','adaptive_reuse_knowledge','project_involvement','project_details','project_location','selected_strategy','outcome_rating_method','other_outcome_text','consent_accepted','consented_at','consent_version','weighting_method','selected_factor_count','factor_ranking','comments',...scoreHeaders,...outcomeHeaders];
   const rows = submissions.map((submission, index) => {
     const scores = normalizedFactorImportanceScores(submission);
     const outcomes = normalizedOutcomeRatings(submission, outcomeOptionsForSubmission(submission));
@@ -1887,6 +1923,7 @@ function exportQuestionnaireResultsCsv() {
       submissionProjectDetails(submission) || '',
       submission.projectLocation || submission.project_location || '',
       strategyLabel(selectedStrategyForSubmission(submission)),
+      outcomeRatingMethodForSubmission(submission) || 'legacy_outcome_scale_v1',
       submission.otherOutcomeText || submission.other_outcome_text || '',
       submission.consentAccepted || submission.consent_accepted || consent.accepted ? 'true' : '',
       submission.consentedAt || submission.consented_at || consent.acceptedAt || consent.accepted_at || '',
@@ -1909,6 +1946,8 @@ function exportQuestionnaireResultsJson() {
       consent_accepted: submission.consentAccepted || submission.consent_accepted || consent.accepted || false,
       consented_at: submission.consentedAt || submission.consented_at || consent.acceptedAt || consent.accepted_at || null,
       consent_version: submission.consentVersion || submission.consent_version || consent.consentVersion || consent.consent_version || null,
+      outcomeRatingMethod: outcomeRatingMethodForSubmission(submission) || 'legacy_outcome_scale_v1',
+      normalizedOutcomeDesirabilityRatings: normalizedOutcomeRatings(submission, outcomeOptionsForSubmission(submission)),
       factorImportanceScores: normalizedFactorImportanceScores(submission)
     };
   });
@@ -2277,11 +2316,16 @@ function lockTeamAccess() {
 function activateTab(tabName) {
   if (!tabAllowedByAccess(tabName)) tabName = 'survey';
   if (tabName === 'survey-results' && !teamAccessUnlocked() && !state.surveyResultsUnlocked) return;
-  document.querySelectorAll('.tab,.tab-panel').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(item => {
+    item.classList.remove('active');
+    item.removeAttribute('aria-current');
+  });
+  document.querySelectorAll('.tab-panel').forEach(item => item.classList.remove('active'));
   const tab = document.querySelector('.tab[data-tab="'+tabName+'"]');
   const panel = document.getElementById(tabName);
   if (!tab || !panel) return;
   tab.classList.add('active');
+  tab.setAttribute('aria-current', 'page');
   panel.classList.add('active');
   if (tabName === 'questionnaire-results') {
     openQuestionnaireResultsTab();
@@ -2312,6 +2356,13 @@ function updateViewModeTabs() {
   document.querySelectorAll('.tab[data-mode]').forEach(tab => {
     tab.hidden = !teamAccessUnlocked() ? tab.dataset.tab !== 'survey' : tab.dataset.mode !== state.viewMode;
   });
+  const questionnaireTab = document.querySelector('.tab[data-tab="survey"]');
+  if (questionnaireTab) {
+    const participantCurrentPage = !teamAccessUnlocked();
+    questionnaireTab.disabled = participantCurrentPage;
+    questionnaireTab.classList.toggle('participant-current-tab', participantCurrentPage);
+    questionnaireTab.setAttribute('aria-disabled', String(participantCurrentPage));
+  }
   updateSurveyResultAccess();
   const activeTab = document.querySelector('.tab.active');
   if (!teamAccessUnlocked()) {
@@ -2464,11 +2515,11 @@ function renderQuestionnaireFactorTable(pool) {
       const isDisabled = !isSelected && state.surveySelectedFactorIds.length >= maxSurveyFactors;
       const isExpanded = state.expandedSurveyFactorIds.includes(factor.id);
       const detailId = 'factor-detail-' + factor.id;
-      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" role="button" tabindex="'+(isDisabled ? '-1' : '0')+'" aria-pressed="'+(isSelected ? 'true' : 'false')+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head">'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'<strong>'+explainTerms(factor.factor_name)+'</strong></div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
+      return '<article class="factor-choice-card '+(isSelected ? 'selected' : '')+' '+(isDisabled ? 'disabled' : '')+'" data-questionnaire-factor-card="'+h(factor.id)+'" aria-disabled="'+(isDisabled ? 'true' : 'false')+'"><div class="factor-choice-head"><button class="factor-select-button" data-factor-select="'+h(factor.id)+'" type="button" aria-pressed="'+(isSelected ? 'true' : 'false')+'" '+(isDisabled ? 'disabled' : '')+'>'+(isSelected ? '<span class="factor-selected-badge">Selected</span>' : '')+'<strong>'+explainTerms(factor.factor_name)+'</strong></button></div><button data-factor-details="'+h(factor.id)+'" class="text-link-button factor-detail-toggle" type="button" aria-expanded="'+(isExpanded ? 'true' : 'false')+'" aria-controls="'+h(detailId)+'">'+(isExpanded ? 'Hide details' : 'Show details')+'</button><div id="'+h(detailId)+'" class="factor-detail '+(isExpanded ? 'is-open' : '')+'">'+explainTerms(surveyExplanation(factor))+'</div></article>';
     }).join('') + '</div></section>';
   }).join('');
   const limitMessage = state.surveySelectedFactorIds.length >= maxSurveyFactors ? '<p class="selection-warning">Five factors selected. Deselect one factor before choosing another.</p>' : '';
-  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Concerns</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / 5 factors</span></div><p class="map-note">Challenges, uncertainties, complexities and safety issues are common concerns, while there are also prospects that influence decision-making when it comes to adaptive reuse or redevelopment.</p><p class="map-note">Please select 5 factors that you consider most important and use the slider bar to indicate their importance.</p>'+limitMessage+'<div class="factor-choice-layout">'+rows+'</div></div>';
+  return '<div class="factor-selection-panel"><div class="selection-heading"><strong>Concerns</strong><span>Selected '+h(state.surveySelectedFactorIds.length)+' / 5 factors</span></div><p class="map-note concerns-guidance">Challenges, uncertainties, complexities and safety issues are common concerns, while there are also opportunities that influence decision-making when considering adaptive reuse or redevelopment.</p><p class="map-note concerns-guidance">The assessment framework includes 20 factors grouped under eight dimensions. Please select 5 factors that you consider most important. You may select more than one factor from the same dimension.</p><p class="map-note concerns-guidance">Please use the slider bar to indicate the importance of each selected factor.</p>'+limitMessage+'<div class="factor-choice-layout">'+rows+'</div></div>';
 }
 function renderRankingList(selected) {
   const selectedById = Object.fromEntries(selected.map(factor => [factor.id, factor]));
@@ -2528,7 +2579,7 @@ function renderStakeholderBackgroundQuestions() {
   return statutoryQuestion + '<label>Where are you based?<select id="participantBased"><option value="">Select answer</option>'+participantBasedOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + '<label>Do you have knowledge or experience related to adaptive reuse?<select id="adaptiveReuseKnowledge"><option value="">Select answer</option>'+stakeholderKnowledgeOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' +
     '<label>Have you been involved in any adaptive reuse or redevelopment project?<select id="projectInvolvement"><option value="">Select answer</option>'+projectInvolvementOptions.map(option => '<option>'+h(option)+'</option>').join('')+'</select></label>' + projectDetailsQuestion;
 }
-function renderOutcomeLikelihoodScale() {
+function renderOutcomeDesirabilityScale() {
   const strategyButtons = outcomeStrategyOptions.map(option => '<button class="strategy-choice '+(state.selectedStrategy === option.id ? 'selected' : '')+'" data-outcome-strategy="'+h(option.id)+'" type="button" aria-pressed="'+(state.selectedStrategy === option.id ? 'true' : 'false')+'"><strong>'+h(option.label)+'</strong></button>').join('');
   if (!state.selectedStrategy) return '<div class="reuse-outcome-box"><h3>Preferred development strategy</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div></div>';
   const options = currentOutcomeOptions();
@@ -2537,15 +2588,15 @@ function renderOutcomeLikelihoodScale() {
     const selectedValue = Number(state.preferredOutcomeRatings[option.id]);
     const isChecked = Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, option.id);
     const isDisabled = !isChecked && selectedCount >= 5;
-    const cells = outcomeLikelihoodScale.filter(scale => scale.value > 1).map(scale => {
+    const cells = outcomeDesirabilityScale.map(scale => {
       const checked = selectedValue === scale.value;
-      return '<label class="likelihood-option '+(checked ? 'selected' : '')+'"><input data-reuse-likelihood="'+h(option.id)+'" name="reuse-likelihood-'+h(option.id)+'" type="radio" value="'+h(scale.value)+'" '+(checked ? 'checked' : '')+' /><span>'+h(scale.label)+'</span></label>';
+      return '<label class="desirability-option '+(checked ? 'selected' : '')+'"><input data-outcome-desirability="'+h(option.id)+'" name="outcome-desirability-'+h(option.id)+'" type="radio" value="'+h(scale.value)+'" '+(checked ? 'checked' : '')+' /><span>'+h(scale.label)+'</span></label>';
     }).join('');
     const otherInput = option.id === 'others' && isChecked ? '<label class="other-outcome-input">Please specify the other outcome<input id="otherOutcomeText" type="text" value="'+h(state.otherOutcomeText || '')+'" /></label>' : '';
-    return '<div class="outcome-likelihood-row '+(isChecked ? 'selected' : '')+'"><label class="outcome-check"><input data-reuse-outcome-toggle="'+h(option.id)+'" type="checkbox" '+(isChecked ? 'checked' : '')+' '+(isDisabled ? 'disabled' : '')+' /><span>'+h(option.label)+'</span></label>'+(isChecked ? '<div class="likelihood-followup"><strong>Level of preference</strong><div class="likelihood-options">'+cells+'</div>'+(selectedValue >= 2 ? '' : '<em>Please select a preference level.</em>')+otherInput+'</div>' : '')+'</div>';
+    return '<div class="outcome-desirability-row '+(isChecked ? 'selected' : '')+'"><label class="outcome-check"><input data-reuse-outcome-toggle="'+h(option.id)+'" type="checkbox" '+(isChecked ? 'checked' : '')+' '+(isDisabled ? 'disabled' : '')+' /><span>'+h(option.label)+'</span></label>'+(isChecked ? '<div class="desirability-followup"><strong>Desirability level</strong><div class="desirability-options">'+cells+'</div>'+(selectedValue >= 1 ? '' : '<em>Please select a desirability level.</em>')+otherInput+'</div>' : '')+'</div>';
   }).join('');
   const subheading = state.selectedStrategy === 'adaptiveReuse' ? 'Adaptive reuse outcomes' : 'Demolition & redevelopment outcomes';
-  return '<div class="reuse-outcome-box"><h3>Preferred development strategy</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div>'+(state.outcomeResetNotice ? '<p class="selection-warning">'+h(state.outcomeResetNotice)+'</p>' : '')+'<div class="selection-heading"><h4>'+h(subheading)+'</h4><span>Selected '+h(selectedCount)+' / 5 outcomes</span></div><p class="map-note">Select five options and indicate the level of preference.</p><div class="outcome-likelihood-table">'+rows+'</div></div>';
+  return '<div class="reuse-outcome-box"><h3>Preferred development strategy</h3><div class="strategy-question"><strong>Select one strategy</strong><div class="strategy-choice-grid">'+strategyButtons+'</div></div>'+(state.outcomeResetNotice ? '<p class="selection-warning">'+h(state.outcomeResetNotice)+'</p>' : '')+'<div class="selection-heading"><h4>'+h(subheading)+'</h4><span>Selected '+h(selectedCount)+' / 5 outcomes</span></div><p class="map-note">Select five options and indicate the level of preference.</p><p class="outcome-desirability-question">For each of the five outcomes selected, how desirable do you consider it?</p><div class="outcome-desirability-table">'+rows+'</div></div>';
 }
 function renderParticipantInformationCard() {
   return '<div class="participant-info-card"><h3>Participant information and consent</h3><p>You are invited to participate in an academic study on the adaptive reuse of vacant or underused industrial buildings in Hong Kong.</p><p>Adaptive reuse refers to the process of repurposing existing buildings for new functions, effectively giving them a new lease on life.</p><p>The adaptive reuse process involves challenges due to the multiple factors that influence decision-making. This research aims to identify these critical factors and develop a model for optimising the decision-making process. The survey provides you with an opportunity to give your opinion on the factors listed below.</p><p>Responding to this survey is entirely voluntary. This survey will take approximately 10–15 minutes. Your responses will be used for research purposes and will be treated with confidentiality.</p><p>If you agree to participate, please read the attached ‘Informed Consent Form’ and provide your consent through the reply slip below.</p><a class="consent-form-link" href="'+h(INFORMED_CONSENT_FORM_URL)+'" target="_blank" rel="noopener noreferrer">Read the full Informed Consent Form</a></div>';
@@ -2575,7 +2626,7 @@ function renderSurveyReviewPanel(selected) {
     return factor ? '<li><strong>'+h(index + 1)+'.</strong> '+h(factor.factor_name)+' <span>'+h(surveyRating(id))+' / 100</span></li>' : '';
   }).filter(Boolean).join('');
   const outcomes = outcomeRatingsAsLabels().map(([label, value]) => '<li><strong>'+h(label)+'</strong><span>'+h(value)+'</span></li>').join('');
-  const otherOutcomeReview = Number(state.preferredOutcomeRatings.others) >= 2 ? '<li><strong>Other outcome specified</strong><span>'+h(state.otherOutcomeText || 'Not specified')+'</span></li>' : '';
+  const otherOutcomeReview = Object.prototype.hasOwnProperty.call(state.preferredOutcomeRatings, 'others') ? '<li><strong>Other outcome specified</strong><span>'+h(state.otherOutcomeText || 'Not specified')+'</span></li>' : '';
   const statutoryReview = state.participantGroup === 'Statutory body' ? '<div><dt>Statutory body type</dt><dd>'+h(state.statutoryBodyType || 'Not provided')+'</dd></div>' : '';
   const ownershipReview = state.participantGroup === 'Building owner / landlord' ? '<div><dt>Ownership type</dt><dd>'+h(state.industrialOwnershipType || 'Not provided')+'</dd></div>' : '';
   const projectDetailsReview = shouldAskProjectDetails() ? '<div><dt>Project name(s) and country/city</dt><dd>'+h(String(state.projectDetails || '').trim() || 'Not specified')+'</dd></div>' : '';
@@ -2673,20 +2724,13 @@ function renderSurveyCriteria() {
       renderSurveyCriteria();
     };
     card.onclick = selectCard;
-    card.onkeydown = e => {
-      if (e.target.closest('[data-factor-details]')) return;
-      if (e.key !== 'Enter' && e.key !== ' ') return;
-      e.preventDefault();
-      toggleQuestionnaireFactor(e.currentTarget.dataset.questionnaireFactorCard);
-      renderSurveyCriteria();
-    };
   });
   const submitButtonHtml = state.surveyReviewOpen ? '' : '<button id="submitSurvey" class="primary-button" type="button">Submit survey</button>';
   document.getElementById('surveyPreview').innerHTML =
     '<div class="survey-banner"><strong>'+h(selected.length)+'</strong><span>participant-selected factors</span></div>' +
     renderImportanceSliders(selected) +
     renderRankingList(selected) +
-    renderOutcomeLikelihoodScale() +
+    renderOutcomeDesirabilityScale() +
     submitButtonHtml +
     renderSurveyReviewPanel(selected) +
     '<div id="surveySubmitStatus" class="survey-submit-status" aria-live="polite"></div>' +
@@ -2710,8 +2754,8 @@ function renderSurveyCriteria() {
     updateSurveySummary();
   });
   bindRankingControls();
-  document.querySelectorAll('[data-reuse-likelihood]').forEach(input => input.onchange = e => {
-    state.preferredOutcomeRatings[e.target.dataset.reuseLikelihood] = Number(e.target.value);
+  document.querySelectorAll('[data-outcome-desirability]').forEach(input => input.onchange = e => {
+    state.preferredOutcomeRatings[e.target.dataset.outcomeDesirability] = Number(e.target.value);
     state.outcomeResetNotice = '';
     setSurveyInProgress();
     renderSurveyCriteria();
@@ -2817,7 +2861,7 @@ function updateSurveySummary() {
   const incorrectFactorCount = selected.length !== 5;
   const missingImportanceScores = selected.some(factor => !Number.isFinite(Number(state.surveyRatings[factor.id])));
   const missingStrategy = !state.selectedStrategy;
-  const missingOutcomeLikelihoods = !outcomeRatingsComplete();
+  const missingOutcomePreferences = !outcomeRatingsComplete();
   const missingOtherOutcomeText = !otherOutcomeComplete();
   const participantMessage = !state.participantGroup
     ? 'Please select your stakeholder group.'
@@ -2846,7 +2890,7 @@ function updateSurveySummary() {
   } else if (missingStrategy) {
     message = 'Please select one reuse or redevelopment strategy before submitting.';
     type = 'has-error';
-  } else if (missingOutcomeLikelihoods) {
+  } else if (missingOutcomePreferences) {
     message = 'Please select exactly five outcomes and indicate the level of preference for each selected outcome.';
     type = 'has-error';
   } else if (missingOtherOutcomeText) {
@@ -2878,11 +2922,11 @@ function submitSurvey() {
   const missingParticipant = !state.participantGroup || (state.participantGroup === 'Building owner / landlord' && !state.industrialOwnershipType) || (state.participantGroup === 'Statutory body' && !state.statutoryBodyType);
   const missingBackground = !!state.participantGroup && (!state.participantBased || !state.adaptiveReuseKnowledge || !state.projectInvolvement);
   const missingStrategy = !state.selectedStrategy;
-  const missingOutcomeLikelihoods = !outcomeRatingsComplete();
+  const missingOutcomePreferences = !outcomeRatingsComplete();
   const missingOtherOutcomeText = !otherOutcomeComplete();
   const selected = selectedQuestionnaireFactors();
   const missingImportanceScores = selected.some(factor => !Number.isFinite(Number(state.surveyRatings[factor.id])));
-  if (missingParticipant || missingBackground || missingStrategy || missingOutcomeLikelihoods || missingOtherOutcomeText || missingImportanceScores || selected.length < minSurveyFactors || selected.length > maxSurveyFactors) {
+  if (missingParticipant || missingBackground || missingStrategy || missingOutcomePreferences || missingOtherOutcomeText || missingImportanceScores || selected.length < minSurveyFactors || selected.length > maxSurveyFactors) {
     setSurveyInProgress();
     updateSurveySummary();
     return;
@@ -3014,8 +3058,8 @@ function renderSurveyResults() {
   if (outcomeSummary) {
     const hasOutcomeData = outcomeRows.some(row => row.responseCount > 0);
     outcomeSummary.innerHTML = hasOutcomeData
-      ? '<thead><tr><th>Outcome</th><th>Average likelihood</th><th>Ticked support</th><th>Most common response</th><th>Response distribution</th><th>Responses</th></tr></thead><tbody>' + outcomeRows.map(row => '<tr><td><strong>'+h(row.label)+'</strong></td><td>'+h(row.average === null ? 'Awaiting response' : row.average.toFixed(1) + '/4')+'</td><td>'+h(row.selectedCount)+' ('+h(row.selectedPercent)+'%)</td><td>'+h(row.mostCommon)+'</td><td>'+h(row.distribution.join(' / '))+'</td><td>'+h(row.responseCount)+'</td></tr>').join('') + '</tbody>'
-      : '<tbody><tr><td colspan="6"><div class="empty-state">No preferred reuse / redevelopment outcome likelihood ratings recorded for this stakeholder group yet.</div></td></tr></tbody>';
+      ? '<thead><tr><th>Outcome</th><th>Average desirability score</th><th>Selected</th><th>Most common desirability</th><th>Response distribution</th><th>Responses</th></tr></thead><tbody>' + outcomeRows.map(row => '<tr><td><strong>'+h(row.label)+'</strong></td><td>'+h(row.average === null ? 'Awaiting response' : row.average.toFixed(1) + '/4')+'</td><td>'+h(row.selectedCount)+' ('+h(row.selectedPercent)+'%)</td><td>'+h(row.mostCommon)+'</td><td>'+h(row.distribution.join(' / '))+'</td><td>'+h(row.responseCount)+'</td></tr>').join('') + '</tbody>'
+      : '<tbody><tr><td colspan="6"><div class="empty-state">No preferred reuse / redevelopment outcome desirability ratings recorded for this stakeholder group yet.</div></td></tr></tbody>';
   }
   bindSurveyResultGroupButtons();
   document.getElementById('surveyResultMeta').textContent = (topFactor ? 'Top factor: ' + topFactor.factor_name + ' (' + topFactor.score + ' / 100 average importance score)' : 'No scored factors') + ' | Filter: ' + (filter === 'All' ? 'All stakeholder groups' : stakeholderGroupLabel(filter));
@@ -3491,7 +3535,10 @@ function init() {
     state.researchWeights = state.weights.slice();
     render();
   });
-  document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => activateTab(tab.dataset.tab));
+  document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
+    if (!teamAccessUnlocked() && tab.dataset.tab === 'survey') return;
+    activateTab(tab.dataset.tab);
+  });
   document.querySelectorAll('[data-view-mode]').forEach(button => button.onclick = () => {
     state.viewMode = button.dataset.viewMode;
     updateViewModeTabs();
