@@ -483,6 +483,14 @@ tbody tr.selected-row { background: var(--green-soft); }
   .factor-selected-badge { padding: 2px 5px; font-size: 9px; }
   .factor-detail-toggle { min-height: 36px; margin: 0; padding: 6px 0; font-size: 12px; }
   .factor-detail { padding: 8px; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; word-break: normal; }
+  .importance-slider-row { gap: 12px; padding: 12px; }
+  .importance-slider-row > span { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 0; }
+  .importance-slider-row strong { display: block; min-width: 0; font-size: 13px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+  .importance-slider-row em { display: block; margin-top: 7px; font-size: 10.5px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+  .importance-slider-row b { display: block; grid-column: auto; grid-row: auto; margin-top: 12px; font-size: 15px; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+  .importance-slider-row > input[type="range"] { width: 100%; min-width: 0; margin: 2px 0 0; }
+  .importance-slider-row .slider-scale { gap: 8px; font-size: 10px; line-height: 1.3; }
+  .importance-slider-row .slider-scale small { min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: normal; }
 }
 
 .header-copy { min-width: 0; }
